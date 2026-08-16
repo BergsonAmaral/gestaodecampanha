@@ -14,7 +14,16 @@
   const escrever = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
   const CHAVE_MEMBRO = 'sigc.membro';
-  let cfg = ler(CHAVE_CFG, { url: '', chave: '', campanhaId: '' });
+  // conexão padrão desta instalação — a chave é a pública (anon), protegida
+  // pelas políticas de acesso do banco (supabase/02_rls.sql), por isso pode
+  // ficar embutida no código como qualquer aplicativo cliente do Supabase.
+  const PADRAO = {
+    url: 'https://qsmimfehrvbsiqgnwdln.supabase.co',
+    chave: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFzbWltZmVocnZic2lxZ253ZGxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5MjEyNzQsImV4cCI6MjEwMjQ5NzI3NH0.zc4jwAoC5krX1gtSU2UeqHw8XOvzkp_JLuC9QbWAdng',
+    campanhaId: '',
+  };
+  let cfg = ler(CHAVE_CFG, PADRAO);
+  if (!cfg.url) cfg = PADRAO;
   let sessao = ler(CHAVE_SESSAO, null);
   let membro = ler(CHAVE_MEMBRO, null);
   let fila = ler(CHAVE_FILA, []);
@@ -102,7 +111,15 @@
       body: JSON.stringify({ email, password: senha }),
     });
     const dados = await r.json();
-    if (!r.ok) throw new Error(dados.error_description || dados.msg || 'Não foi possível entrar.');
+    if (!r.ok) {
+      const bruta = dados.error_description || dados.msg || '';
+      const traducoes = {
+        'Invalid login credentials': 'E-mail ou senha incorretos.',
+        'Email not confirmed': 'E-mail ainda não confirmado — verifique sua caixa de entrada.',
+        'User not found': 'Não existe usuário com este e-mail.',
+      };
+      throw new Error(traducoes[bruta] || bruta || 'Não foi possível entrar. Confira o e-mail e a senha.');
+    }
     sessao = dados;
     escrever(CHAVE_SESSAO, sessao);
     await carregarMembro();

@@ -274,7 +274,8 @@
             toast(r.enviados + ' registro(s) enviado(s) · ' + r.pendentes + ' pendente(s).');
           } catch (e) { toast(String(e.message || e), 'erro'); }
         } }),
-        el('button', { class: 'btn perigo', text: 'Desconectar', onclick: () => { SB.limparCfg(); SB.sair(); toast('Projeto desconectado. O sistema voltou ao modo local.'); global.refresh(); } }),
+        SB.autenticado() ? el('button', { class: 'btn', html: global.icHTML('log-out', 14) + ' Sair', onclick: () => { SB.sair(); location.reload(); } }) : null,
+        el('button', { class: 'btn perigo', text: 'Desconectar deste banco', onclick: () => { SB.limparCfg(); SB.sair(); toast('Projeto desconectado. O sistema voltou ao modo local.'); location.reload(); } }),
       ]),
       estadoConexao,
     ]);

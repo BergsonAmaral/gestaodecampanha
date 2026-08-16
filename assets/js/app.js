@@ -70,7 +70,7 @@
 
     const sidebar = el('aside', { class: 'sidebar' }, [
       el('div', { class: 'marca', onclick: alternarSidebar, style: { cursor: 'pointer' } }, [
-        el('div', { class: 'marca-icone', text: global.U.initials(global.DB.config.candidato || 'SIGC') }),
+        el('img', { class: 'marca-icone', src: 'assets/img/logo-icone.png', alt: 'SIGC' }),
         el('div', { class: 'marca-txt' }, [
           el('b', { text: global.DB.config.candidato || 'Sistema de Gestão de Campanha' }),
           el('span', { text: global.DB.config.municipio ? global.DB.config.municipio + ' · ' + global.DB.config.ano : 'campanha não configurada' }),
@@ -306,22 +306,9 @@
     atualizarCasca();
   };
 
-  /** favicon com as iniciais da candidatura — sem nome fixo de exemplo */
-  function atualizarFavicon(iniciais) {
-    const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230e9f6e'/>" +
-      (iniciais ? "<text x='50' y='68' font-size='50' font-family='sans-serif' font-weight='bold' text-anchor='middle' fill='%23ffffff'>" + iniciais + "</text>" : "") +
-      "</svg>";
-    let link = document.querySelector("link[rel='icon']");
-    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-    link.href = 'data:image/svg+xml,' + svg;
-  }
-
   /** atualiza os elementos fixos da casca (marca, contagem, modo de armazenamento) */
   function atualizarCasca() {
     const cfg = global.DB.config;
-    const marca = $('.marca-icone');
-    if (marca) marca.textContent = global.U.initials(cfg.candidato || 'SIGC');
-    atualizarFavicon(cfg.candidato ? global.U.initials(cfg.candidato) : null);
     const txt = $('.marca-txt');
     if (txt) {
       txt.innerHTML = '';
@@ -376,7 +363,57 @@
     if (app && ehCelular()) app.classList.remove('menu-aberto');
     rotear();
   });
-  document.addEventListener('DOMContentLoaded', () => {
+  /* ==========================  ENTRADA  ========================== */
+  function montarLogin(aoEntrar) {
+    document.body.innerHTML = '';
+    const erro = el('div', { class: 'login-erro', style: { display: 'none' } });
+    const email = el('input', { type: 'email', placeholder: 'seu e-mail', autocomplete: 'username' });
+    const senha = el('input', { type: 'password', placeholder: 'sua senha', autocomplete: 'current-password' });
+    const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('user-round', 15) + ' Entrar' });
+
+    const mostrarErro = (msg) => { erro.textContent = msg; erro.style.display = 'block'; };
+
+    const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
+      ev.preventDefault();
+      erro.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Entrando…';
+      try {
+        await global.SB.entrar(email.value.trim(), senha.value);
+        const membro = await global.SB.carregarMembro();
+        if (!membro) {
+          global.SB.sair();
+          mostrarErro('Login correto, mas este e-mail ainda não tem acesso vinculado a nenhuma campanha. Peça à coordenação geral para registrar seu acesso.');
+          btn.disabled = false;
+          btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
+          return;
+        }
+        await aoEntrar();
+      } catch (e) {
+        mostrarErro(String(e.message || e));
+        btn.disabled = false;
+        btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
+      }
+    }}, [
+      el('div', { class: 'campo' }, [el('label', { text: 'E-mail' }), email]),
+      el('div', { class: 'campo' }, [el('label', { text: 'Senha' }), senha]),
+      erro,
+      btn,
+    ]);
+
+    document.body.appendChild(el('div', { class: 'login-tela' }, [
+      el('div', { class: 'login-caixa' }, [
+        el('img', { class: 'login-icone', src: 'assets/img/logo-icone.png', alt: 'SIGC' }),
+        el('h1', { text: 'Sistema de Gestão de Campanha' }),
+        el('p', { class: 'subtexto', text: 'Entre com o e-mail e a senha cadastrados pela sua coordenação.' }),
+        form,
+      ]),
+    ]));
+    setTimeout(() => email.focus(), 60);
+  }
+
+  async function iniciarApp() {
+    document.body.innerHTML = '';
     document.documentElement.dataset.tema = store.get('tema', 'claro');
     montarCasca();
     rotear();
@@ -385,5 +422,25 @@
       if (global.DB.vazia) return;
       toast('Base carregada: ' + num(global.DB.pessoas.length) + ' pessoas em ' + global.DB.bairros.length + ' bairros' + (global.SB.configurado() ? ' · banco conectado' : ' · modo local') + '.');
     }, 500);
-  });
+  }
+
+  async function entrarNaPlataforma() {
+    if (global.SB.autenticado()) {
+      const m = await global.SB.carregarMembro();
+      if (m) {
+        try { await global.SB.baixarTudo(); } catch (e) { toast('Conectado, mas não consegui baixar a campanha: ' + e.message, 'erro'); }
+        return iniciarApp();
+      }
+      global.SB.sair(); // sessão sem vínculo de acesso — volta para o login
+    }
+    if (global.SB.configurado()) return montarLogin(() => entrarPosLogin());
+    return iniciarApp();
+  }
+
+  async function entrarPosLogin() {
+    try { await global.SB.baixarTudo(); } catch (e) { toast('Conectado, mas não consegui baixar a campanha: ' + e.message, 'erro'); }
+    return iniciarApp();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => { entrarNaPlataforma(); });
 })(window);
