@@ -366,17 +366,17 @@
   /* ==========================  ENTRADA  ========================== */
   const CHAVE_PENDENTE = 'sigc.bootstrapPendente';
 
-  /** conclui o vínculo de coordenação para quem se cadastrou mas precisou confirmar o e-mail antes */
-  async function tentarConcluirBootstrapPendente(email) {
+  /** registra a solicitação de acesso para quem se cadastrou mas precisou confirmar o e-mail antes */
+  async function tentarConcluirSolicitacaoPendente(email) {
     let pend;
     try { pend = JSON.parse(localStorage.getItem(CHAVE_PENDENTE) || 'null'); } catch (e) { pend = null; }
-    if (!pend || pend.email !== email) return null;
+    if (!pend || pend.email !== email) return false;
     try {
-      await global.SB.bootstrapCoordenacao(pend);
+      await global.SB.solicitarAcesso(pend);
       localStorage.removeItem(CHAVE_PENDENTE);
-      return await global.SB.carregarMembro();
+      return true;
     } catch (e) {
-      return null; // provavelmente outra pessoa já concluiu o próprio acesso primeiro
+      return false;
     }
   }
 
@@ -413,16 +413,16 @@
         btn.textContent = 'Entrando…';
         try {
           await global.SB.entrar(email.value.trim(), senha.value);
-          let membro = await global.SB.carregarMembro();
-          if (!membro) membro = await tentarConcluirBootstrapPendente(email.value.trim());
-          if (!membro) {
-            global.SB.sair();
-            mostrarErro('Login correto, mas este e-mail ainda não tem acesso vinculado a nenhuma campanha. Peça à coordenação geral para registrar seu acesso em Acessos.');
-            btn.disabled = false;
-            btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
-            return;
-          }
-          await aoEntrar();
+          const membro = await global.SB.carregarMembro();
+          if (membro) return await aoEntrar();
+          if (await global.SB.souSuperadmin()) return montarPainelAdmin();
+          const registrou = await tentarConcluirSolicitacaoPendente(email.value.trim());
+          global.SB.sair();
+          mostrarErro(registrou
+            ? 'Conta confirmada e solicitação registrada. Aguarde a aprovação da administração da plataforma para entrar.'
+            : 'Login correto, mas este e-mail ainda não tem acesso liberado. Se você já pediu acesso, aguarde a aprovação; senão, use "Solicitar acesso" abaixo.');
+          btn.disabled = false;
+          btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
         } catch (e) {
           mostrarErro(String(e.message || e));
           btn.disabled = false;
@@ -434,14 +434,14 @@
         erro, aviso, btn,
       ]);
       areaForm.appendChild(form);
-      areaForm.appendChild(el('button', { class: 'login-alterna', type: 'button', text: 'Primeira vez usando o sistema? Criar acesso da coordenação', onclick: desenharCriar }));
+      areaForm.appendChild(el('button', { class: 'login-alterna', type: 'button', text: 'Ainda não tem acesso? Solicitar para sua campanha', onclick: desenharCriar }));
       setTimeout(() => email.focus(), 60);
     }
 
     function desenharCriar() {
       modo = 'criar';
       limparMsgs();
-      corpo.querySelector('#login-sub').textContent = 'Crie o primeiro acesso — quem cria vira coordenação geral da campanha. Funciona uma única vez.';
+      corpo.querySelector('#login-sub').textContent = 'Peça acesso para sua campanha. Um administrador da plataforma revisa e libera o acesso de coordenação geral.';
       areaForm.innerHTML = '';
       const c = {
         email: el('input', { type: 'email', placeholder: 'seu e-mail', autocomplete: 'username' }),
@@ -452,12 +452,12 @@
         ano: el('input', { type: 'number', placeholder: 'ano da eleição', value: new Date().getFullYear() }),
         dataEleicao: el('input', { type: 'date' }),
       };
-      const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('sparkles', 15) + ' Criar acesso da coordenação' });
+      const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('sparkles', 15) + ' Solicitar acesso' });
       const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
         ev.preventDefault();
         limparMsgs();
         btn.disabled = true;
-        btn.textContent = 'Criando…';
+        btn.textContent = 'Enviando…';
         const dados = {
           email: c.email.value.trim(), candidato: c.candidato.value.trim(), municipio: c.municipio.value.trim(),
           uf: c.uf.value.trim().toUpperCase(), ano: +c.ano.value || new Date().getFullYear(),
@@ -470,19 +470,20 @@
           const r = await global.SB.cadastrar(dados.email, c.senha.value);
           if (!r.access_token) {
             localStorage.setItem(CHAVE_PENDENTE, JSON.stringify(dados));
-            mostrarAviso('Conta criada! Este projeto pede confirmação por e-mail — verifique sua caixa de entrada, clique no link e depois entre normalmente aqui.');
+            mostrarAviso('Conta criada! Este projeto pede confirmação por e-mail — verifique sua caixa de entrada, clique no link e depois volte aqui e entre normalmente para concluir o pedido.');
             btn.disabled = false;
-            btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar acesso da coordenação';
+            btn.innerHTML = global.icHTML('sparkles', 15) + ' Solicitar acesso';
             return;
           }
-          await global.SB.bootstrapCoordenacao(dados);
-          const membro = await global.SB.carregarMembro();
-          if (!membro) throw new Error('Conta criada, mas não consegui vincular a campanha. Tente entrar normalmente.');
-          await aoEntrar();
+          await global.SB.solicitarAcesso(dados);
+          global.SB.sair();
+          mostrarAviso('Solicitação enviada! Assim que a administração da plataforma aprovar, você poderá entrar normalmente com este e-mail e senha.');
+          btn.disabled = false;
+          btn.innerHTML = global.icHTML('sparkles', 15) + ' Solicitar acesso';
         } catch (e) {
           mostrarErro(String(e.message || e));
           btn.disabled = false;
-          btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar acesso da coordenação';
+          btn.innerHTML = global.icHTML('sparkles', 15) + ' Solicitar acesso';
         }
       }}, [
         el('div', { class: 'campo' }, [el('label', { text: 'E-mail' }), c.email]),
@@ -506,6 +507,65 @@
     desenharEntrar();
   }
 
+  /** painel isolado do superadmin — não pertence a nenhuma campanha */
+  async function montarPainelAdmin() {
+    document.body.innerHTML = '';
+    document.documentElement.dataset.tema = store.get('tema', 'claro');
+    const raiz = el('div', { class: 'admin-tela' });
+    document.body.appendChild(raiz);
+
+    async function desenhar() {
+      raiz.innerHTML = '';
+      raiz.appendChild(el('header', { class: 'admin-topo' }, [
+        el('img', { class: 'marca-icone', src: 'assets/img/logo-icone.png', alt: 'SIGC' }),
+        el('div', { style: { flex: 1 } }, [el('b', { text: 'Administração da plataforma' }), el('div', { class: 'subtexto', text: 'Aprovação de novos acessos de coordenação geral' })]),
+        el('button', { class: 'btn pequeno', html: global.icHTML('log-out', 14) + ' Sair', onclick: () => { global.SB.sair(); location.reload(); } }),
+      ]));
+
+      let lista = [];
+      try { lista = await global.SB.listarSolicitacoes(); } catch (e) { toast('Não foi possível carregar as solicitações: ' + e.message, 'erro'); }
+      const pendentes = lista.filter((s) => s.status === 'pendente');
+      const decididas = lista.filter((s) => s.status !== 'pendente');
+
+      const corpo = el('main', { class: 'admin-corpo' });
+      corpo.appendChild(el('h2', { text: pendentes.length + ' solicitação(ões) pendente(s)' }));
+      if (!pendentes.length) {
+        corpo.appendChild(el('p', { class: 'subtexto', text: 'Nenhum pedido de acesso aguardando aprovação no momento.' }));
+      }
+      pendentes.forEach((s) => {
+        corpo.appendChild(el('div', { class: 'admin-cartao' }, [
+          el('div', { style: { flex: 1 } }, [
+            el('b', { text: s.candidato }),
+            el('div', { class: 'subtexto', text: s.municipio + (s.uf ? '/' + s.uf : '') + ' · ' + s.ano + (s.data_eleicao ? ' · eleição em ' + s.data_eleicao : '') }),
+            el('div', { class: 'subtexto', text: s.email }),
+            el('div', { class: 'subtexto', text: 'pedido em ' + new Date(s.criada_em).toLocaleDateString('pt-BR') }),
+          ]),
+          el('div', { class: 'filtros', style: { marginBottom: 0 } }, [
+            el('button', { class: 'btn pequeno perigo', text: 'Recusar', onclick: async () => {
+              const motivo = prompt('Motivo da recusa (opcional):') || null;
+              try { await global.SB.recusarSolicitacao(s.id, motivo); toast('Solicitação recusada.'); desenhar(); }
+              catch (e) { toast(e.message, 'erro'); }
+            } }),
+            el('button', { class: 'btn pequeno primario', text: 'Aprovar', onclick: async () => {
+              try { await global.SB.aprovarSolicitacao(s.id); toast(s.candidato + ' liberado(a) como coordenação geral.'); desenhar(); }
+              catch (e) { toast(e.message, 'erro'); }
+            } }),
+          ]),
+        ]));
+      });
+
+      if (decididas.length) {
+        corpo.appendChild(el('h2', { style: { marginTop: '22px' }, text: 'Histórico' }));
+        decididas.forEach((s) => corpo.appendChild(el('div', { class: 'admin-cartao decidida' }, [
+          el('div', { style: { flex: 1 } }, [el('b', { text: s.candidato }), el('div', { class: 'subtexto', text: s.email })]),
+          el('span', { class: 'tag ' + (s.status === 'aprovada' ? 'verde' : 'vermelho') + ' ponto', text: s.status }),
+        ])));
+      }
+      raiz.appendChild(corpo);
+    }
+    desenhar();
+  }
+
   async function iniciarApp() {
     document.body.innerHTML = '';
     document.documentElement.dataset.tema = store.get('tema', 'claro');
@@ -525,7 +585,8 @@
         try { await global.SB.baixarTudo(); } catch (e) { toast('Conectado, mas não consegui baixar a campanha: ' + e.message, 'erro'); }
         return iniciarApp();
       }
-      global.SB.sair(); // sessão sem vínculo de acesso — volta para o login
+      if (await global.SB.souSuperadmin()) return montarPainelAdmin();
+      global.SB.sair(); // sessão sem vínculo de acesso e sem ser superadmin — volta para o login
     }
     if (global.SB.configurado()) return montarLogin(() => entrarPosLogin());
     return iniciarApp();

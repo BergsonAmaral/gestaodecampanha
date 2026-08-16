@@ -145,16 +145,25 @@
     return dados; // se não vier access_token, o projeto exige confirmação por e-mail
   }
 
-  /** cria a campanha e vincula o usuário atual como coordenação geral (uso único) */
-  async function bootstrapCoordenacao(dados) {
-    return rest('rpc/bootstrap_coordenacao', {
+  /** quem acabou de criar a conta pede acesso — não cria campanha na hora */
+  async function solicitarAcesso(dados) {
+    return rest('rpc/solicitar_acesso', {
       method: 'POST',
       body: JSON.stringify({
-        p_email: dados.email, p_candidato: dados.candidato, p_municipio: dados.municipio,
-        p_uf: dados.uf, p_ano: dados.ano, p_eleicao: dados.dataEleicao, p_nome_campanha: dados.nomeCampanha || null,
+        p_candidato: dados.candidato, p_municipio: dados.municipio, p_uf: dados.uf,
+        p_ano: dados.ano, p_eleicao: dados.dataEleicao, p_nome_campanha: dados.nomeCampanha || null,
       }),
     });
   }
+
+  /** true quando o usuário autenticado é administrador da plataforma (não de uma campanha) */
+  async function souSuperadmin() {
+    try { return await rest('rpc/sou_superadmin', { method: 'POST', body: '{}' }); } catch (e) { return false; }
+  }
+
+  const listarSolicitacoes = () => rest('solicitacoes_acesso?select=*&order=criada_em.desc');
+  const aprovarSolicitacao = (id) => rest('rpc/aprovar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id }) });
+  const recusarSolicitacao = (id, motivo) => rest('rpc/recusar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id, p_motivo: motivo || null }) });
 
   function sair() {
     sessao = null;
@@ -290,7 +299,7 @@
     salvarCfg(novo) { cfg = Object.assign(cfg, novo); escrever(CHAVE_CFG, cfg); instrumentar(); return cfg; },
     limparCfg() { cfg = { url: '', chave: '', campanhaId: '' }; localStorage.removeItem(CHAVE_CFG); },
     configurado, autenticado, entrar, sair, testar, baixarTudo, enviarFila, instrumentar, carregarMembro,
-    cadastrar, bootstrapCoordenacao,
+    cadastrar, solicitarAcesso, souSuperadmin, listarSolicitacoes, aprovarSolicitacao, recusarSolicitacao,
     membro: () => (membro ? { perfil: membro.perfil, pessoaId: membro.pessoa_id, regiaoId: membro.regiao_id, campanhaId: membro.campanha_id } : null),
     get sessao() { return sessao; },
     get pendentes() { return fila.length; },

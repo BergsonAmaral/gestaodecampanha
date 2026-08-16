@@ -48,19 +48,46 @@ cerca de 730 KB). Para a equipe trabalhar junto, conecte o Supabase.
 As escritas feitas nas telas entram numa fila local e sobem para o banco; sem internet elas
 ficam guardadas e são enviadas quando a conexão volta.
 
-### Primeiro acesso pelo próprio app
+### Acesso por aprovação (o site não é gratuito — alguém decide quem entra)
 
-Além do `03_primeiro_acesso.sql` (manual, editando placeholders), existe um
-caminho mais simples: rode `supabase/04_bootstrap.sql` uma única vez no SQL
-Editor — ele cria a função `bootstrap_coordenacao`, protegida para só
-funcionar enquanto não existir nenhuma campanha no projeto. Depois disso, a
-tela de login do sistema tem o link **"Primeira vez usando o sistema? Criar
-acesso da coordenação"**: quem preencher esse formulário cria a própria conta
-e já vira coordenação geral, sem precisar voltar ao painel do Supabase.
+O sistema tem dois papéis fora das campanhas:
 
-Se o projeto exigir confirmação por e-mail (padrão do Supabase), a pessoa
-recebe um aviso para confirmar e depois entrar normalmente — o vínculo com a
-campanha se completa sozinho no primeiro login.
+- **Superadmin** (você): administra a plataforma, aprova ou recusa pedidos de
+  acesso. Não pertence a nenhuma campanha e não vê os dados de campanha de
+  ninguém — só decide quem entra.
+- **Coordenação geral de uma campanha**: quem usa o sistema para a própria
+  eleição.
+
+Fluxo de quem quer usar o sistema:
+1. Na tela de login, clica em **"Ainda não tem acesso? Solicitar para sua
+   campanha"**, cria a própria conta (e-mail/senha) e preenche os dados da
+   candidatura.
+2. Isso cria só a conta e um **pedido pendente** — nenhuma campanha é criada
+   ainda.
+3. Você entra com sua conta de superadmin, vê o pedido em **Administração da
+   plataforma** e clica em **Aprovar** (ou Recusar, com motivo opcional).
+4. Só depois disso a campanha é criada e a pessoa consegue entrar.
+
+**Configuração (uma vez só, no SQL Editor, nesta ordem):**
+1. `01_schema.sql` e `02_rls.sql` (estrutura e políticas).
+2. `04_bootstrap.sql` (define as funções; o fluxo automático dela é
+   desativado no passo seguinte).
+3. `05_superadmin.sql` (cria o fluxo de solicitação/aprovação e desativa o
+   acesso direto do `bootstrap_coordenacao`).
+4. Crie a **sua própria conta** — pela tela de login (usando "Solicitar
+   acesso" só para gerar o login; ignore o pedido de campanha que isso cria)
+   ou direto em Authentication → Users no painel do Supabase.
+5. Rode uma vez, trocando o e-mail:
+   ```sql
+   insert into plataforma_admins (user_id, nome)
+   select id, 'Seu nome' from auth.users where email = 'seu-email@exemplo.com';
+   ```
+6. Entre no sistema com essa conta — você cai direto no painel de
+   administração, não no sistema de campanha.
+
+Se o projeto do Supabase exigir confirmação por e-mail (padrão), a pessoa
+recebe um aviso para confirmar e, ao entrar pela primeira vez depois de
+confirmar, o pedido é registrado automaticamente.
 
 ### Perfis de acesso (seção 28 do documento)
 
