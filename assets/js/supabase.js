@@ -126,6 +126,36 @@
     return dados;
   }
 
+  /** cria a conta de autenticação (o próprio usuário digita e-mail/senha) */
+  async function cadastrar(email, senha) {
+    const r = await fetch(cfg.url.replace(/\/$/, '') + '/auth/v1/signup', {
+      method: 'POST', headers: { apikey: cfg.chave, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha }),
+    });
+    const dados = await r.json();
+    if (!r.ok) {
+      const bruta = dados.error_description || dados.msg || dados.error || '';
+      const traducoes = {
+        'User already registered': 'Já existe uma conta com este e-mail — tente entrar em vez de criar.',
+        'Password should be at least 6 characters': 'A senha precisa ter pelo menos 6 caracteres.',
+      };
+      throw new Error(traducoes[bruta] || bruta || 'Não foi possível criar a conta.');
+    }
+    if (dados.access_token) { sessao = dados; escrever(CHAVE_SESSAO, sessao); }
+    return dados; // se não vier access_token, o projeto exige confirmação por e-mail
+  }
+
+  /** cria a campanha e vincula o usuário atual como coordenação geral (uso único) */
+  async function bootstrapCoordenacao(dados) {
+    return rest('rpc/bootstrap_coordenacao', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_email: dados.email, p_candidato: dados.candidato, p_municipio: dados.municipio,
+        p_uf: dados.uf, p_ano: dados.ano, p_eleicao: dados.dataEleicao, p_nome_campanha: dados.nomeCampanha || null,
+      }),
+    });
+  }
+
   function sair() {
     sessao = null;
     membro = null;
@@ -260,6 +290,7 @@
     salvarCfg(novo) { cfg = Object.assign(cfg, novo); escrever(CHAVE_CFG, cfg); instrumentar(); return cfg; },
     limparCfg() { cfg = { url: '', chave: '', campanhaId: '' }; localStorage.removeItem(CHAVE_CFG); },
     configurado, autenticado, entrar, sair, testar, baixarTudo, enviarFila, instrumentar, carregarMembro,
+    cadastrar, bootstrapCoordenacao,
     membro: () => (membro ? { perfil: membro.perfil, pessoaId: membro.pessoa_id, regiaoId: membro.regiao_id, campanhaId: membro.campanha_id } : null),
     get sessao() { return sessao; },
     get pendentes() { return fila.length; },

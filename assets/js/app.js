@@ -364,52 +364,146 @@
     rotear();
   });
   /* ==========================  ENTRADA  ========================== */
+  const CHAVE_PENDENTE = 'sigc.bootstrapPendente';
+
+  /** conclui o vínculo de coordenação para quem se cadastrou mas precisou confirmar o e-mail antes */
+  async function tentarConcluirBootstrapPendente(email) {
+    let pend;
+    try { pend = JSON.parse(localStorage.getItem(CHAVE_PENDENTE) || 'null'); } catch (e) { pend = null; }
+    if (!pend || pend.email !== email) return null;
+    try {
+      await global.SB.bootstrapCoordenacao(pend);
+      localStorage.removeItem(CHAVE_PENDENTE);
+      return await global.SB.carregarMembro();
+    } catch (e) {
+      return null; // provavelmente outra pessoa já concluiu o próprio acesso primeiro
+    }
+  }
+
   function montarLogin(aoEntrar) {
     document.body.innerHTML = '';
+    document.documentElement.dataset.tema = store.get('tema', 'claro'); // login sempre no tema salvo — claro por padrão
+    let modo = 'entrar'; // 'entrar' | 'criar'
+
     const erro = el('div', { class: 'login-erro', style: { display: 'none' } });
-    const email = el('input', { type: 'email', placeholder: 'seu e-mail', autocomplete: 'username' });
-    const senha = el('input', { type: 'password', placeholder: 'sua senha', autocomplete: 'current-password' });
-    const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('user-round', 15) + ' Entrar' });
+    const aviso = el('div', { class: 'login-aviso', style: { display: 'none' } });
+    const mostrarErro = (msg) => { erro.textContent = msg; erro.style.display = 'block'; aviso.style.display = 'none'; };
+    const mostrarAviso = (msg) => { aviso.textContent = msg; aviso.style.display = 'block'; erro.style.display = 'none'; };
+    const limparMsgs = () => { erro.style.display = 'none'; aviso.style.display = 'none'; };
 
-    const mostrarErro = (msg) => { erro.textContent = msg; erro.style.display = 'block'; };
+    const corpo = el('div', { class: 'login-caixa' }, [
+      el('img', { class: 'login-logo', src: 'assets/img/logo-completa.png', alt: 'Sistema de Gestão de Campanha' }),
+      el('p', { class: 'subtexto', id: 'login-sub' }),
+    ]);
+    document.body.appendChild(el('div', { class: 'login-tela' }, [corpo]));
+    const areaForm = el('div');
+    corpo.appendChild(areaForm);
 
-    const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
-      ev.preventDefault();
-      erro.style.display = 'none';
-      btn.disabled = true;
-      btn.textContent = 'Entrando…';
-      try {
-        await global.SB.entrar(email.value.trim(), senha.value);
-        const membro = await global.SB.carregarMembro();
-        if (!membro) {
-          global.SB.sair();
-          mostrarErro('Login correto, mas este e-mail ainda não tem acesso vinculado a nenhuma campanha. Peça à coordenação geral para registrar seu acesso.');
+    function desenharEntrar() {
+      modo = 'entrar';
+      corpo.querySelector('#login-sub').textContent = 'Entre com o e-mail e a senha cadastrados pela sua coordenação.';
+      areaForm.innerHTML = '';
+      const email = el('input', { type: 'email', placeholder: 'seu e-mail', autocomplete: 'username' });
+      const senha = el('input', { type: 'password', placeholder: 'sua senha', autocomplete: 'current-password' });
+      const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('user-round', 15) + ' Entrar' });
+      const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
+        ev.preventDefault();
+        limparMsgs();
+        btn.disabled = true;
+        btn.textContent = 'Entrando…';
+        try {
+          await global.SB.entrar(email.value.trim(), senha.value);
+          let membro = await global.SB.carregarMembro();
+          if (!membro) membro = await tentarConcluirBootstrapPendente(email.value.trim());
+          if (!membro) {
+            global.SB.sair();
+            mostrarErro('Login correto, mas este e-mail ainda não tem acesso vinculado a nenhuma campanha. Peça à coordenação geral para registrar seu acesso em Acessos.');
+            btn.disabled = false;
+            btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
+            return;
+          }
+          await aoEntrar();
+        } catch (e) {
+          mostrarErro(String(e.message || e));
           btn.disabled = false;
           btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
-          return;
         }
-        await aoEntrar();
-      } catch (e) {
-        mostrarErro(String(e.message || e));
-        btn.disabled = false;
-        btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
-      }
-    }}, [
-      el('div', { class: 'campo' }, [el('label', { text: 'E-mail' }), email]),
-      el('div', { class: 'campo' }, [el('label', { text: 'Senha' }), senha]),
-      erro,
-      btn,
-    ]);
+      }}, [
+        el('div', { class: 'campo' }, [el('label', { text: 'E-mail' }), email]),
+        el('div', { class: 'campo' }, [el('label', { text: 'Senha' }), senha]),
+        erro, aviso, btn,
+      ]);
+      areaForm.appendChild(form);
+      areaForm.appendChild(el('button', { class: 'login-alterna', type: 'button', text: 'Primeira vez usando o sistema? Criar acesso da coordenação', onclick: desenharCriar }));
+      setTimeout(() => email.focus(), 60);
+    }
 
-    document.body.appendChild(el('div', { class: 'login-tela' }, [
-      el('div', { class: 'login-caixa' }, [
-        el('img', { class: 'login-icone', src: 'assets/img/logo-icone.png', alt: 'SIGC' }),
-        el('h1', { text: 'Sistema de Gestão de Campanha' }),
-        el('p', { class: 'subtexto', text: 'Entre com o e-mail e a senha cadastrados pela sua coordenação.' }),
-        form,
-      ]),
-    ]));
-    setTimeout(() => email.focus(), 60);
+    function desenharCriar() {
+      modo = 'criar';
+      limparMsgs();
+      corpo.querySelector('#login-sub').textContent = 'Crie o primeiro acesso — quem cria vira coordenação geral da campanha. Funciona uma única vez.';
+      areaForm.innerHTML = '';
+      const c = {
+        email: el('input', { type: 'email', placeholder: 'seu e-mail', autocomplete: 'username' }),
+        senha: el('input', { type: 'password', placeholder: 'crie uma senha (mínimo 6 caracteres)', autocomplete: 'new-password' }),
+        candidato: el('input', { type: 'text', placeholder: 'nome da candidatura' }),
+        municipio: el('input', { type: 'text', placeholder: 'município' }),
+        uf: el('input', { type: 'text', placeholder: 'UF', maxlength: 2 }),
+        ano: el('input', { type: 'number', placeholder: 'ano da eleição', value: new Date().getFullYear() }),
+        dataEleicao: el('input', { type: 'date' }),
+      };
+      const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('sparkles', 15) + ' Criar acesso da coordenação' });
+      const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
+        ev.preventDefault();
+        limparMsgs();
+        btn.disabled = true;
+        btn.textContent = 'Criando…';
+        const dados = {
+          email: c.email.value.trim(), candidato: c.candidato.value.trim(), municipio: c.municipio.value.trim(),
+          uf: c.uf.value.trim().toUpperCase(), ano: +c.ano.value || new Date().getFullYear(),
+          dataEleicao: c.dataEleicao.value || null,
+        };
+        try {
+          if (!dados.email || c.senha.value.length < 6 || !dados.candidato || !dados.municipio) {
+            throw new Error('Preencha e-mail, senha (6+ caracteres), candidatura e município.');
+          }
+          const r = await global.SB.cadastrar(dados.email, c.senha.value);
+          if (!r.access_token) {
+            localStorage.setItem(CHAVE_PENDENTE, JSON.stringify(dados));
+            mostrarAviso('Conta criada! Este projeto pede confirmação por e-mail — verifique sua caixa de entrada, clique no link e depois entre normalmente aqui.');
+            btn.disabled = false;
+            btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar acesso da coordenação';
+            return;
+          }
+          await global.SB.bootstrapCoordenacao(dados);
+          const membro = await global.SB.carregarMembro();
+          if (!membro) throw new Error('Conta criada, mas não consegui vincular a campanha. Tente entrar normalmente.');
+          await aoEntrar();
+        } catch (e) {
+          mostrarErro(String(e.message || e));
+          btn.disabled = false;
+          btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar acesso da coordenação';
+        }
+      }}, [
+        el('div', { class: 'campo' }, [el('label', { text: 'E-mail' }), c.email]),
+        el('div', { class: 'campo' }, [el('label', { text: 'Senha' }), c.senha]),
+        el('div', { class: 'campo' }, [el('label', { text: 'Candidatura' }), c.candidato]),
+        el('div', { class: 'campo-linha' }, [
+          el('div', { class: 'campo' }, [el('label', { text: 'Município' }), c.municipio]),
+          el('div', { class: 'campo' }, [el('label', { text: 'UF' }), c.uf]),
+        ]),
+        el('div', { class: 'campo-linha' }, [
+          el('div', { class: 'campo' }, [el('label', { text: 'Ano da eleição' }), c.ano]),
+          el('div', { class: 'campo' }, [el('label', { text: 'Data da eleição' }), c.dataEleicao]),
+        ]),
+        erro, aviso, btn,
+      ]);
+      areaForm.appendChild(form);
+      areaForm.appendChild(el('button', { class: 'login-alterna', type: 'button', text: '‹ Já tenho acesso, voltar para entrar', onclick: desenharEntrar }));
+      setTimeout(() => c.email.focus(), 60);
+    }
+
+    desenharEntrar();
   }
 
   async function iniciarApp() {

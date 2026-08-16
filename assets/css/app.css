@@ -408,7 +408,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   padding:24px;
 }
 .login-caixa{width:100%;max-width:380px;text-align:center}
-.login-icone{width:64px;height:64px;border-radius:18px;margin:0 auto 18px;display:block;object-fit:cover;box-shadow:0 4px 18px -6px rgba(14,159,110,.35), 0 0 0 1px var(--border)}
+.login-logo{max-width:min(320px,86%);width:100%;height:auto;margin:0 auto 18px;display:block}
 .login-caixa h1{font-size:19px;font-weight:650;letter-spacing:-.3px;margin-bottom:6px}
 .login-caixa .subtexto{margin-bottom:24px;font-size:12.5px}
 .login-form{text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow-2)}
@@ -419,6 +419,15 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   background:var(--danger-soft);color:var(--danger);border-radius:9px;padding:9px 11px;
   font-size:12.5px;margin-bottom:14px;line-height:1.4;
 }
+.login-aviso{
+  background:var(--accent-soft);color:var(--accent);border-radius:9px;padding:9px 11px;
+  font-size:12.5px;margin-bottom:14px;line-height:1.45;
+}
+.login-alterna{
+  display:block;width:100%;text-align:center;background:none;border:none;color:var(--txt-3);
+  font-size:12px;margin-top:14px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;
+}
+.login-alterna:hover{color:var(--txt-2)}
 
 /* affordances */
 .br-item.sel{background:var(--accent-soft)}

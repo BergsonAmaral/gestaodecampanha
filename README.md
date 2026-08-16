@@ -48,6 +48,20 @@ cerca de 730 KB). Para a equipe trabalhar junto, conecte o Supabase.
 As escritas feitas nas telas entram numa fila local e sobem para o banco; sem internet elas
 ficam guardadas e são enviadas quando a conexão volta.
 
+### Primeiro acesso pelo próprio app
+
+Além do `03_primeiro_acesso.sql` (manual, editando placeholders), existe um
+caminho mais simples: rode `supabase/04_bootstrap.sql` uma única vez no SQL
+Editor — ele cria a função `bootstrap_coordenacao`, protegida para só
+funcionar enquanto não existir nenhuma campanha no projeto. Depois disso, a
+tela de login do sistema tem o link **"Primeira vez usando o sistema? Criar
+acesso da coordenação"**: quem preencher esse formulário cria a própria conta
+e já vira coordenação geral, sem precisar voltar ao painel do Supabase.
+
+Se o projeto exigir confirmação por e-mail (padrão do Supabase), a pessoa
+recebe um aviso para confirmar e depois entrar normalmente — o vínculo com a
+campanha se completa sozinho no primeiro login.
+
 ### Perfis de acesso (seção 28 do documento)
 
 Seis perfis, aplicados em duas camadas: o **banco** recusa os dados que a pessoa não pode
