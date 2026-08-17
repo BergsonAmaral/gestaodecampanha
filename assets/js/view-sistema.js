@@ -234,15 +234,19 @@
       estadoConexao.innerHTML = '';
       estadoConexao.appendChild(el('span', { class: 'tag ' + (ok ? 'verde' : 'vermelho') + ' ponto', text: txt }));
     };
-    if (SB.configurado()) mostrarEstado(SB.autenticado() ? 'projeto conectado e autenticado' : 'projeto configurado — falta entrar', SB.autenticado());
-    else mostrarEstado('modo local: os dados ficam apenas neste navegador', false);
+    if (SB.configurado()) mostrarEstado(SB.autenticado() ? 'conectado — os dados são salvos automaticamente' : 'falta entrar na conta', SB.autenticado());
+    else mostrarEstado('modo de teste: os dados ficam só neste navegador', false);
 
-    const formBanco = el('div', {}, [
-      el('p', { class: 'subtexto', text: 'Sem banco, o sistema funciona só neste navegador — bom para testar, insuficiente para a equipe. Com o projeto Supabase conectado, todo mundo trabalha na mesma base e as regras de acesso da seção 28 passam a valer.' }),
+    const formBanco = SB.autenticado() ? el('div', {}, [
+      estadoConexao,
+      el('div', { class: 'filtros', style: { marginTop: '10px' } }, [
+        el('button', { class: 'btn perigo', html: global.icHTML('log-out', 14) + ' Sair da conta', onclick: () => { SB.sair(); location.reload(); } }),
+      ]),
+    ]) : el('div', {}, [
+      el('p', { class: 'subtexto', text: 'Sem conta conectada, o sistema funciona só neste navegador — bom para testar, insuficiente para a equipe.' }),
       el('div', { class: 'divisor' }),
       el('div', { class: 'campo' }, [el('label', { text: 'URL do projeto' }), inpUrl]),
-      el('div', { class: 'campo' }, [el('label', { text: 'Chave pública (anon)' }), inpChave,
-        el('small', { class: 'subtexto', text: 'Cole aqui a chave anon do seu projeto. Ela é pública por natureza — quem protege os dados são as políticas de acesso do arquivo 02_rls.sql.' })]),
+      el('div', { class: 'campo' }, [el('label', { text: 'Chave pública (anon)' }), inpChave]),
       el('div', { class: 'filtros' }, [
         el('button', { class: 'btn', html: global.icHTML('shield-check', 14) + ' Testar conexão', onclick: async () => {
           SB.salvarCfg({ url: inpUrl.value.trim(), chave: inpChave.value.trim() });
@@ -274,8 +278,6 @@
             toast(r.enviados + ' registro(s) enviado(s) · ' + r.pendentes + ' pendente(s).');
           } catch (e) { toast(String(e.message || e), 'erro'); }
         } }),
-        SB.autenticado() ? el('button', { class: 'btn', html: global.icHTML('log-out', 14) + ' Sair', onclick: () => { SB.sair(); location.reload(); } }) : null,
-        el('button', { class: 'btn perigo', text: 'Desconectar deste banco', onclick: () => { SB.limparCfg(); SB.sair(); toast('Projeto desconectado. O sistema voltou ao modo local.'); location.reload(); } }),
       ]),
       estadoConexao,
     ]);
@@ -344,7 +346,7 @@
       cartao('Identificação da campanha', 'Aparece nos relatórios e no painel', [formCampanha]),
       el('div', { class: 'grade', style: { gap: '14px', alignContent: 'start' } }, [
         cardPerfil,
-        cartao('Banco de dados', 'Modo atual: ' + (global.SB.configurado() ? 'Supabase' : 'local (somente este navegador)'), [formBanco]),
+        cartao('Sua conta', global.SB.autenticado() ? 'Acesso e sincronização' : 'Modo de teste — dados só neste navegador', [formBanco]),
         cartao('Backup e manutenção', 'Base atual: ' + num(s.total) + ' pessoas, ' + D.bairros.length + ' bairros, ' + D.tarefas.length + ' tarefas', [formBackup]),
       ]),
     ]));
