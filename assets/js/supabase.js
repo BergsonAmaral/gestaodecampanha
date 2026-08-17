@@ -162,6 +162,9 @@
   }
 
   const listarSolicitacoes = () => rest('solicitacoes_acesso?select=*&order=criada_em.desc');
+  const criarConvite = (email, nota) => rest('rpc/criar_convite', { method: 'POST', body: JSON.stringify({ p_email: email, p_nota: nota || null }) });
+  const ativarConvite = () => rest('rpc/ativar_convite', { method: 'POST', body: '{}' });
+  const listarConvites = () => rest('convites?select=*&order=criado_em.desc');
   const aprovarSolicitacao = (id) => rest('rpc/aprovar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id }) });
   const recusarSolicitacao = (id, motivo) => rest('rpc/recusar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id, p_motivo: motivo || null }) });
 
@@ -202,7 +205,8 @@
     if (!campanha) throw new Error('Campanha não encontrada no projeto.');
     Object.assign(base.config, {
       candidato: campanha.candidato, cargo: campanha.cargo, municipio: campanha.municipio,
-      uf: campanha.uf, ano: campanha.ano, dataEleicao: campanha.data_eleicao, configurado: true,
+      uf: campanha.uf, ano: campanha.ano, dataEleicao: campanha.data_eleicao,
+      configurado: !!(campanha.municipio && campanha.municipio.trim()), // fica pendente até o coordenador preencher de verdade
     });
     for (const tabela of Object.keys(COLECAO)) {
       const filtro = MAPA[tabela] && Object.prototype.hasOwnProperty.call(MAPA[tabela], 'campanha_id') ? '' : '';
@@ -300,6 +304,7 @@
     limparCfg() { cfg = { url: '', chave: '', campanhaId: '' }; localStorage.removeItem(CHAVE_CFG); },
     configurado, autenticado, entrar, sair, testar, baixarTudo, enviarFila, instrumentar, carregarMembro,
     cadastrar, solicitarAcesso, souSuperadmin, listarSolicitacoes, aprovarSolicitacao, recusarSolicitacao,
+    criarConvite, ativarConvite, listarConvites,
     membro: () => (membro ? { perfil: membro.perfil, pessoaId: membro.pessoa_id, regiaoId: membro.regiao_id, campanhaId: membro.campanha_id } : null),
     get sessao() { return sessao; },
     get pendentes() { return fila.length; },

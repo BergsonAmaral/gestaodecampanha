@@ -366,10 +366,15 @@
   /* ==========================  ENTRADA  ========================== */
   const CHAVE_PENDENTE = 'sigc.bootstrapPendente';
 
-  /** registra a solicitação de acesso para quem se cadastrou mas precisou confirmar o e-mail antes */
+  /** depois que a conta foi confirmada por e-mail: tenta ativar convite (se houver) e,
+   *  senão, registra a solicitação de acesso normal */
   async function tentarConcluirSolicitacaoPendente(email) {
     let pend;
     try { pend = JSON.parse(localStorage.getItem(CHAVE_PENDENTE) || 'null'); } catch (e) { pend = null; }
+    try {
+      const r = await global.SB.ativarConvite();
+      if (r && r.ativado) { localStorage.removeItem(CHAVE_PENDENTE); return 'ativado'; }
+    } catch (e) { /* segue para o pedido normal */ }
     if (!pend || pend.email !== email) return false;
     try {
       await global.SB.solicitarAcesso(pend);
@@ -413,7 +418,10 @@
         btn.textContent = 'Entrando…';
         try {
           await global.SB.entrar(email.value.trim(), senha.value);
-          const membro = await global.SB.carregarMembro();
+          let membro = await global.SB.carregarMembro();
+          if (!membro) {
+            try { const r = await global.SB.ativarConvite(); if (r && r.ativado) membro = await global.SB.carregarMembro(); } catch (e) {}
+          }
           if (membro) return await aoEntrar();
           if (await global.SB.souSuperadmin()) return montarPainelAdmin();
           const registrou = await tentarConcluirSolicitacaoPendente(email.value.trim());
@@ -475,6 +483,8 @@
             btn.innerHTML = global.icHTML('sparkles', 15) + ' Solicitar acesso';
             return;
           }
+          const conv = await global.SB.ativarConvite();
+          if (conv && conv.ativado) { return await aoEntrar(); }
           await global.SB.solicitarAcesso(dados);
           global.SB.sair();
           mostrarAviso('Solicitação enviada! Assim que a administração da plataforma aprovar, você poderá entrar normalmente com este e-mail e senha.');
@@ -522,13 +532,44 @@
         el('button', { class: 'btn pequeno', html: global.icHTML('log-out', 14) + ' Sair', onclick: () => { global.SB.sair(); location.reload(); } }),
       ]));
 
-      let lista = [];
+      let lista = [], convites = [];
       try { lista = await global.SB.listarSolicitacoes(); } catch (e) { toast('Não foi possível carregar as solicitações: ' + e.message, 'erro'); }
+      try { convites = await global.SB.listarConvites(); } catch (e) {}
       const pendentes = lista.filter((s) => s.status === 'pendente');
       const decididas = lista.filter((s) => s.status !== 'pendente');
+      const convitesAbertos = convites.filter((c) => !c.usado);
 
       const corpo = el('main', { class: 'admin-corpo' });
-      corpo.appendChild(el('h2', { text: pendentes.length + ' solicitação(ões) pendente(s)' }));
+
+      const inpEmail = el('input', { type: 'email', placeholder: 'e-mail do coordenador' });
+      const inpNota = el('input', { type: 'text', placeholder: 'anotação para você (opcional) — ex.: nome do cliente' });
+      const btnConvidar = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('plus', 14) + ' Convidar' });
+      corpo.appendChild(el('form', { class: 'admin-convite', onsubmit: async (ev) => {
+        ev.preventDefault();
+        if (!inpEmail.value.trim()) return;
+        btnConvidar.disabled = true;
+        try {
+          await global.SB.criarConvite(inpEmail.value.trim(), inpNota.value.trim());
+          toast('Convite criado — quando essa pessoa criar a conta com este e-mail, o acesso é liberado na hora.');
+          inpEmail.value = ''; inpNota.value = '';
+          desenhar();
+        } catch (e) { toast(e.message, 'erro'); btnConvidar.disabled = false; }
+      }}, [
+        el('h2', { style: { marginTop: 0 }, text: 'Cadastrar novo coordenador' }),
+        el('p', { class: 'subtexto', style: { marginBottom: '12px' }, text: 'Você só informa o e-mail. Quem preenche candidatura, município e data da eleição é o próprio coordenador, ao entrar pela primeira vez.' }),
+        el('div', { class: 'campo-linha' }, [inpEmail, inpNota]),
+        btnConvidar,
+      ]));
+
+      if (convitesAbertos.length) {
+        corpo.appendChild(el('h2', { style: { marginTop: '22px' }, text: convitesAbertos.length + ' convite(s) aguardando a pessoa criar a conta' }));
+        convitesAbertos.forEach((c) => corpo.appendChild(el('div', { class: 'admin-cartao decidida' }, [
+          el('div', { style: { flex: 1 } }, [el('b', { text: c.email }), c.nota ? el('div', { class: 'subtexto', text: c.nota }) : null]),
+          el('span', { class: 'tag laranja ponto', text: 'aguardando' }),
+        ])));
+      }
+
+      corpo.appendChild(el('h2', { style: { marginTop: '22px' }, text: pendentes.length + ' solicitação(ões) pendente(s) (sem convite)' }));
       if (!pendentes.length) {
         corpo.appendChild(el('p', { class: 'subtexto', text: 'Nenhum pedido de acesso aguardando aprovação no momento.' }));
       }
