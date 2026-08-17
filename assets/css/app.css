@@ -59,6 +59,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* ==========================  ESTRUTURA  ========================== */
 .app{display:grid;grid-template-columns:250px 1fr;height:100vh}
 .app.colapsado{grid-template-columns:70px 1fr}
+.menu-fundo{display:none}
 
 .sidebar{background:var(--bg-1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:30}
 .marca{display:flex;align-items:center;gap:11px;padding:16px 16px 14px;border-bottom:1px solid var(--border);cursor:pointer}
@@ -522,7 +523,7 @@ tbody tr:hover .linha-abrir{opacity:1}
     box-shadow:0 0 40px -10px rgba(16,24,40,.35);
   }
   .app.menu-aberto .sidebar{transform:none}
-  .menu-fundo{position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:130;opacity:0;transition:opacity .2s;pointer-events:none}
+  .menu-fundo{display:block;position:fixed;inset:0;background:rgba(16,24,40,.45);z-index:130;opacity:0;transition:opacity .2s;pointer-events:none}
   .app.menu-aberto .menu-fundo{opacity:1;pointer-events:auto}
   .nav-item{padding:11px 12px;font-size:14px}
   .nav-item span{display:inline}
