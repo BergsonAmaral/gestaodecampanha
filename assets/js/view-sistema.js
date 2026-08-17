@@ -77,20 +77,40 @@
 
   /* ==========================  ACESSOS  ========================== */
   global.VIEWS['acessos'] = function (alvo) {
-    const D = global.DB;
-    const A = D.acessos;
+    const D = global.DB, SB = global.SB;
 
-    alvo.appendChild(cabecalho('Acessos ao sistema',
-      'Quem entra no sistema e com que alcance — a seção 28 do documento aplicada na prática', [
-      el('button', { class: 'btn pequeno primario', html: global.icHTML('plus', 14) + ' Dar acesso', onclick: () => novoAcesso() }),
+    alvo.appendChild(cabecalho('Acessos ao sistema', 'Quem entra no sistema e com que alcance', [
+      el('button', { class: 'btn pequeno primario', html: global.icHTML('plus', 14) + ' Convidar para a equipe', onclick: () => novoConviteEquipe(redesenhar) }),
     ]));
 
-    /* perfis disponíveis, explicados */
-    alvo.appendChild(el('div', { class: 'grade g3', style: { marginBottom: '18px' } },
-      Object.keys(D.PERFIS).map((k) => {
+    const corpoPerfis = el('div', { class: 'grade g3', style: { marginBottom: '18px' } });
+    const corpo = el('div');
+    alvo.appendChild(corpoPerfis);
+    alvo.appendChild(corpo);
+
+    async function redesenhar() {
+      if (!SB.autenticado()) {
+        corpoPerfis.innerHTML = '';
+        corpo.innerHTML = '';
+        corpo.appendChild(vazio({
+          icone: 'shield-check', titulo: 'Disponível só com a conta conectada',
+          texto: 'Convidar e liberar acesso para a equipe depende da conta da campanha estar conectada — no modo de teste local isso não se aplica.',
+        }));
+        return;
+      }
+      corpo.innerHTML = '';
+      corpo.appendChild(el('p', { class: 'subtexto', text: 'Carregando…' }));
+
+      let convites = [], membros = [];
+      try { convites = await SB.listarConvitesEquipe(); } catch (e) { toast('Não foi possível carregar os convites: ' + e.message, 'erro'); }
+      try { membros = await SB.listarMembros(); } catch (e) { toast('Não foi possível carregar os acessos: ' + e.message, 'erro'); }
+      const emailPorUser = new Map(convites.map((c) => [c.user_id, c.email]));
+
+      corpoPerfis.innerHTML = '';
+      Object.keys(D.PERFIS).forEach((k) => {
         const p = D.PERFIS[k];
-        const usados = A.filter((a) => a.perfil === k && a.ativo).length;
-        return el('div', { class: 'cartao' }, [
+        const usados = membros.filter((m) => m.perfil === k && m.ativo).length;
+        corpoPerfis.appendChild(el('div', { class: 'cartao' }, [
           el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' } }, [
             el('div', { class: 'ic-box' }, global.ic(p.icone, 15)),
             el('div', { style: { flex: 1 } }, [
@@ -100,86 +120,172 @@
             p.admin ? tag('administra', 'roxo') : p.escreve ? tag('escreve', 'verde') : tag('só consulta', 'cinza'),
           ]),
           el('p', { class: 'subtexto', text: p.descricao }),
-        ]);
-      })
-    ));
+        ]));
+      });
 
-    /* lista de pessoas com acesso */
-    if (!A.length) {
-      alvo.appendChild(vazio({
-        icone: 'shield-check', titulo: 'Ninguém além de você tem acesso ainda',
-        texto: 'Cada pessoa da campanha entra com o próprio usuário e enxerga apenas o que o perfil dela permite. Registre aqui quem vai usar o sistema e com qual alcance.',
-        acao: { rotulo: 'Dar o primeiro acesso', onclick: () => novoAcesso() },
-      }));
-    } else {
-      alvo.appendChild(global.UI.tabela({
-        linhas: A, ordPadrao: 'perfil', dirPadrao: 'asc', tam: 20, onRow: (a) => editarAcesso(a),
-        colunas: [
-          { k: 'pessoa', rotulo: 'Pessoa', valor: (a) => (a.pessoaId ? D.nome(a.pessoaId) : a.email),
-            render: (a) => a.pessoaId ? global.UI.pessoaCell(a.pessoaId, a.email || 'sem e-mail informado')
-              : el('div', {}, [el('b', { text: a.email, style: { fontSize: '13px' } }), el('small', { text: 'ainda sem vínculo com o cadastro', style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
-          { k: 'perfil', rotulo: 'Perfil', render: (a) => tag(D.PERFIS[a.perfil].rotulo, a.perfil === 'coordenacao_geral' ? 'roxo' : D.PERFIS[a.perfil].escreve ? 'verde' : 'cinza') },
-          { k: 'regiao', rotulo: 'Alcance', valor: (a) => (a.regiaoId ? D.nomeTerr(a.regiaoId) : ''),
-            render: (a) => a.regiaoId ? D.nomeTerr(a.regiaoId) : (D.PERFIS[a.perfil].rotas === '*' ? 'campanha inteira' : 'próprio trabalho') },
-          { k: 'email', rotulo: 'E-mail de entrada' },
-          { k: 'ativo', rotulo: 'Situação', render: (a) => a.ativo ? tag('ativo', 'verde') : tag('suspenso', 'cinza') },
-          { k: 'sincronizado', rotulo: 'No banco', render: (a) => a.sincronizado ? tag('vinculado', 'verde') : tag('pendente', 'laranja') },
-        ],
-      }));
-      alvo.appendChild(el('p', { class: 'subtexto', style: { marginTop: '12px' } },
-        'Registrar aqui define o alcance de cada pessoa. Para que ela consiga entrar de fato, o usuário precisa existir no projeto Supabase — clique em uma linha para copiar o comando que faz o vínculo.'));
+      corpo.innerHTML = '';
+      const aguardandoAceite = convites.filter((c) => c.usado && !c.aceito);
+      const aguardandoLink = convites.filter((c) => !c.usado);
+
+      if (aguardandoAceite.length) {
+        corpo.appendChild(el('h3', { style: { fontSize: '14px', margin: '4px 0 10px' }, text: aguardandoAceite.length + ' pessoa(s) esperando aceite' }));
+        const grade = el('div', { class: 'grade g3', style: { marginBottom: '18px' } });
+        aguardandoAceite.forEach((c) => grade.appendChild(cartaoAceite(c)));
+        corpo.appendChild(grade);
+      }
+      if (aguardandoLink.length) {
+        corpo.appendChild(el('h3', { style: { fontSize: '14px', margin: '4px 0 10px' }, text: aguardandoLink.length + ' link(s) aguardando ativação' }));
+        aguardandoLink.forEach((c) => corpo.appendChild(cartaoLink(c)));
+      }
+
+      corpo.appendChild(el('h3', { style: { fontSize: '14px', margin: '4px 0 10px' }, text: 'Acessos ativos' }));
+      if (!membros.length) {
+        corpo.appendChild(vazio({
+          icone: 'shield-check', titulo: 'Ninguém além de você tem acesso ainda',
+          texto: 'Convide alguém da equipe pelo botão acima — a pessoa cria a própria senha pelo link e você aceita o acesso aqui depois.',
+        }));
+      } else {
+        corpo.appendChild(global.UI.tabela({
+          linhas: membros, ordPadrao: 'perfil', dirPadrao: 'asc', tam: 20, onRow: (m) => abrirMembro(m, emailPorUser.get(m.user_id), redesenhar),
+          colunas: [
+            { k: 'pessoa', rotulo: 'Pessoa', valor: (m) => (m.pessoas ? m.pessoas.nome : emailPorUser.get(m.user_id)) || '—',
+              render: (m) => el('div', {}, [el('b', { text: (m.pessoas ? m.pessoas.nome : null) || emailPorUser.get(m.user_id) || 'sem nome', style: { fontSize: '13px' } }), el('small', { text: emailPorUser.get(m.user_id) || 'sem e-mail conhecido', style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
+            { k: 'perfil', rotulo: 'Perfil', render: (m) => tag(D.PERFIS[m.perfil].rotulo, m.perfil === 'coordenacao_geral' ? 'roxo' : D.PERFIS[m.perfil].escreve ? 'verde' : 'cinza') },
+            { k: 'regiao', rotulo: 'Alcance', valor: (m) => (m.regiao_id ? D.nomeTerr(m.regiao_id) : ''),
+              render: (m) => m.regiao_id ? D.nomeTerr(m.regiao_id) : (D.PERFIS[m.perfil].rotas === '*' ? 'campanha inteira' : 'próprio trabalho') },
+            { k: 'ativo', rotulo: 'Situação', render: (m) => m.ativo ? tag('ativo', 'verde') : tag('suspenso', 'cinza') },
+          ],
+        }));
+      }
     }
+    redesenhar();
   };
 
-  function novoAcesso() {
+  function novoConviteEquipe(aoSalvar) {
     const D = global.DB;
-    const pessoas = D.pessoas.filter((p) => D.funcaoDe(p.id)).concat(D.pessoas.filter((p) => !D.funcaoDe(p.id)));
-    formModal('Dar acesso ao sistema', [
-      { k: 'pessoa', rot: 'Pessoa (já cadastrada)', tipo: 'pessoa', dica: 'digite o nome de quem vai usar o sistema' },
-      { k: 'email', rot: 'E-mail de entrada', tipo: 'texto', obrigatorio: true, dica: 'o mesmo e-mail que será criado no banco' },
-      { k: 'perfil', rot: 'Perfil', tipo: 'select', opcoes: Object.keys(D.PERFIS).map((k) => ({ v: k, t: D.PERFIS[k].rotulo })), valor: 'mobilizador' },
-      { k: 'regiaoId', rot: 'Região (apenas para coordenação territorial)', tipo: 'select',
-        opcoes: [{ v: '', t: 'não se aplica' }].concat(D.regioes.map((r) => ({ v: r.id, t: r.nome }))) },
-    ], (v) => {
-      const p = v.pessoa ? D.pessoas.find((x) => global.U.norm(x.nome) === global.U.norm(v.pessoa)) : null;
-      if (v.pessoa && !p) return 'Não encontrei "' + v.pessoa + '" no cadastro de pessoas.';
-      if (v.perfil === 'coordenacao_territorial' && !v.regiaoId) return 'Coordenação territorial precisa de uma região.';
-      const r = D.addAcesso({ pessoaId: p ? p.id : null, email: v.email, perfil: v.perfil, regiaoId: v.regiaoId || null });
-      if (typeof r === 'string') return r;
-      toast('Acesso registrado para ' + (p ? p.nome.split(' ')[0] : v.email) + '.');
-    }, { acao: 'Registrar acesso', nota: 'O perfil define o que a pessoa enxerga. Quem é coordenação territorial vê apenas a região escolhida.' });
+    const selPerfil = el('select', {}, Object.keys(D.PERFIS).filter((k) => k !== 'coordenacao_geral').map((k) => el('option', { value: k, text: D.PERFIS[k].rotulo, selected: k === 'mobilizador' })));
+    const selRegiao = el('select', {}, [el('option', { value: '', text: 'não se aplica' })].concat(D.regioes.map((r) => el('option', { value: r.id, text: r.nome }))));
+    const inpNota = el('input', { type: 'text', placeholder: 'ex.: nome da pessoa, só para você lembrar' });
+    const areaLink = el('div', { style: { display: 'none', marginTop: '12px' } });
+    const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('plus', 14) + ' Gerar link de convite' });
+    const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
+      ev.preventDefault();
+      if (selPerfil.value === 'coordenacao_territorial' && !selRegiao.value) return toast('Escolha uma região para coordenação territorial.', 'erro');
+      btn.disabled = true;
+      try {
+        const token = await global.SB.criarConviteEquipe(selPerfil.value, selRegiao.value || null, inpNota.value.trim());
+        const link = location.origin + location.pathname + '#/ativar-equipe/' + token;
+        areaLink.style.display = 'block';
+        areaLink.innerHTML = '';
+        areaLink.appendChild(el('div', { class: 'campo' }, [
+          el('label', { text: 'Envie este link para a pessoa (WhatsApp, e-mail — o que for melhor)' }),
+          el('div', { class: 'filtros', style: { marginBottom: 0 } }, [
+            el('input', { type: 'text', readonly: true, value: link, style: { flex: 1 }, onclick: (e) => e.target.select() }),
+            el('button', { class: 'btn pequeno', type: 'button', html: global.icHTML('clipboard-list', 13) + ' Copiar', onclick: () => {
+              global.U.copiarTexto(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar automaticamente — clique no campo e use Cmd/Ctrl+C.', 'erro'));
+            } }),
+          ]),
+        ]));
+        if (aoSalvar) aoSalvar();
+      } catch (e) { toast(String(e.message || e), 'erro'); }
+      btn.disabled = false;
+    } }, [
+      el('div', { class: 'campo' }, [el('label', { text: 'Perfil' }), selPerfil]),
+      el('div', { class: 'campo' }, [el('label', { text: 'Região (apenas para coordenação territorial)' }), selRegiao]),
+      el('div', { class: 'campo' }, [el('label', { text: 'Anotação (opcional)' }), inpNota]),
+      btn, areaLink,
+    ]);
+    modal('Convidar para a equipe', form, { wide: true });
   }
 
-  function editarAcesso(a) {
+  function cartaoAceite(c) {
     const D = global.DB;
-    const sql = "insert into membros (campanha_id, user_id, pessoa_id, perfil, regiao_id)\n" +
-      "select '" + (global.SB.cfg.campanhaId || '<id-da-campanha>') + "', u.id, " +
-      (a.pessoaId ? "'<id-da-pessoa-no-banco>'" : 'null') + ", '" + a.perfil + "', " +
-      (a.regiaoId ? "'<id-da-regiao-no-banco>'" : 'null') + "\n" +
-      "from auth.users u where u.email = '" + a.email + "';";
-    const corpo = el('div', {}, [
-      el('div', { class: 'filtros' }, [
-        tag(D.PERFIS[a.perfil].rotulo, 'roxo'),
-        a.regiaoId ? tag(D.nomeTerr(a.regiaoId), 'azul') : null,
-        a.ativo ? tag('ativo', 'verde') : tag('suspenso', 'cinza'),
+    return el('div', { class: 'cartao' }, [
+      el('div', { style: { marginBottom: '8px' } }, [
+        el('b', { text: c.email || 'sem e-mail', style: { fontSize: '13.5px' } }),
+        el('div', { class: 'subtexto', text: D.PERFIS[c.perfil].rotulo + (c.regiao_id ? ' · ' + D.nomeTerr(c.regiao_id) : '') + (c.nota ? ' · ' + c.nota : '') }),
       ]),
-      dado('Pessoa', a.pessoaId ? D.nome(a.pessoaId) : 'não vinculada ao cadastro'),
-      dado('E-mail', a.email || '—'),
-      dado('Registrado em', global.U.fmtDate(a.criadoEm)),
-      el('div', { class: 'divisor' }),
-      el('p', { class: 'subtexto', text: 'Para esta pessoa entrar de fato, crie o usuário em Authentication → Users no Supabase e rode o comando abaixo no SQL Editor:' }),
-      el('pre', { class: 'bloco-sql', text: sql }),
-      el('div', { class: 'filtros', style: { marginTop: '10px' } }, [
-        el('button', { class: 'btn pequeno', html: global.icHTML('clipboard-list', 13) + ' Copiar comando', onclick: () => {
-          global.U.copiarTexto(sql).then(() => toast('Comando copiado.'), () => toast('Não foi possível copiar automaticamente — selecione o texto acima e use Cmd/Ctrl+C.', 'erro'));
+      el('div', { class: 'filtros', style: { marginBottom: 0 } }, [
+        el('button', { class: 'btn pequeno perigo', text: 'Recusar', onclick: async () => {
+          try { await global.SB.cancelarConviteEquipe(c.id); toast('Convite recusado.'); global.refresh(); } catch (e) { toast(String(e.message || e), 'erro'); }
+        } }),
+        el('button', { class: 'btn pequeno primario', text: 'Aceitar', onclick: () => aceitarConvite(c) }),
+      ]),
+    ]);
+  }
+
+  function aceitarConvite(c) {
+    const D = global.DB;
+    const inpPessoa = el('input', { type: 'text', placeholder: 'digite o nome, se já estiver cadastrada', list: 'lista-pessoas-aceite' });
+    const lista = el('datalist', { id: 'lista-pessoas-aceite' }, D.pessoas.slice(0, 500).map((p) => el('option', { value: p.nome })));
+    const corpo = el('div', {}, [
+      el('p', { class: 'subtexto', text: 'Confirma o acesso de ' + (c.email || 'esta pessoa') + ' como ' + D.PERFIS[c.perfil].rotulo.toLowerCase() + '?' }),
+      el('div', { class: 'campo', style: { marginTop: '10px' } }, [el('label', { text: 'Vincular ao cadastro de pessoas (opcional)' }), inpPessoa, lista]),
+    ]);
+    const m = modal('Aceitar acesso', corpo, { footer: [
+      el('button', { class: 'btn', text: 'Cancelar', onclick: () => m.close() }),
+      el('button', { class: 'btn primario', text: 'Confirmar aceite', onclick: async () => {
+        const nomeBuscado = inpPessoa.value.trim();
+        const p = nomeBuscado ? D.pessoas.find((x) => global.U.norm(x.nome) === global.U.norm(nomeBuscado)) : null;
+        if (nomeBuscado && !p) return toast('Não encontrei "' + nomeBuscado + '" no cadastro de pessoas.', 'erro');
+        try {
+          await global.SB.aceitarConviteEquipe(c.id, p ? p.id : null);
+          m.close();
+          toast('Acesso liberado.');
+          global.refresh();
+        } catch (e) { toast(String(e.message || e), 'erro'); }
+      } }),
+    ]});
+  }
+
+  function cartaoLink(c) {
+    const D = global.DB;
+    const link = location.origin + location.pathname + '#/ativar-equipe/' + c.id;
+    return el('div', { class: 'admin-cartao decidida', style: { flexWrap: 'wrap' } }, [
+      el('div', { style: { flex: '1 1 220px' } }, [
+        el('b', { text: c.nota || D.PERFIS[c.perfil].rotulo }),
+        el('div', { class: 'subtexto', text: D.PERFIS[c.perfil].rotulo + (c.regiao_id ? ' · ' + D.nomeTerr(c.regiao_id) : '') + ' · gerado em ' + new Date(c.criado_em).toLocaleDateString('pt-BR') }),
+      ]),
+      el('span', { class: 'tag laranja ponto', text: 'aguardando' }),
+      el('input', { type: 'text', readonly: true, value: link, style: { flex: '1 1 100%', marginTop: '8px' }, onclick: (e) => e.target.select() }),
+      el('div', { class: 'filtros', style: { marginTop: '8px', marginBottom: 0 } }, [
+        el('button', { class: 'btn pequeno', html: global.icHTML('clipboard-list', 13) + ' Copiar link', onclick: () => {
+          global.U.copiarTexto(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar automaticamente — clique no campo acima e use Cmd/Ctrl+C.', 'erro'));
+        } }),
+        el('button', { class: 'btn pequeno perigo', text: 'Cancelar convite', onclick: async () => {
+          try { await global.SB.cancelarConviteEquipe(c.id); toast('Convite cancelado.'); global.refresh(); } catch (e) { toast(String(e.message || e), 'erro'); }
         } }),
       ]),
     ]);
-    const m = modal('Acesso de ' + (a.pessoaId ? D.nome(a.pessoaId) : a.email), corpo, { wide: true, footer: [
-      el('button', { class: 'btn perigo', text: 'Remover acesso', onclick: () => { D.removerAcesso(a.id); m.close(); toast('Acesso removido.'); global.refresh(); } }),
-      el('button', { class: 'btn', text: a.ativo ? 'Suspender' : 'Reativar', onclick: () => { D.editarAcesso(a.id, { ativo: !a.ativo }); m.close(); toast('Situação atualizada.'); global.refresh(); } }),
-      el('button', { class: 'btn primario', text: 'Fechar', onclick: () => m.close() }),
-    ]});
+  }
+
+  function abrirMembro(m, email, aoMudar) {
+    const D = global.DB;
+    const corpo = el('div', {}, [
+      el('div', { class: 'filtros' }, [
+        tag(D.PERFIS[m.perfil].rotulo, 'roxo'),
+        m.regiao_id ? tag(D.nomeTerr(m.regiao_id), 'azul') : null,
+        m.ativo ? tag('ativo', 'verde') : tag('suspenso', 'cinza'),
+      ]),
+      dado('Pessoa', m.pessoas ? m.pessoas.nome : 'não vinculada ao cadastro'),
+      dado('E-mail', email || 'não disponível'),
+      dado('Acesso desde', global.U.fmtDate(m.criado_em)),
+      email ? el('div', { class: 'divisor' }) : null,
+      email ? el('p', { class: 'subtexto', text: 'A pessoa pode pedir uma nova senha a qualquer momento — o link vai direto para o e-mail dela, ninguém aqui vê ou define a senha.' }) : null,
+    ]);
+    const botoes = [
+      el('button', { class: 'btn perigo', text: 'Remover acesso', onclick: async () => {
+        try { await global.SB.removerMembro(m.id); mod.close(); toast('Acesso removido.'); global.refresh(); } catch (e) { toast(String(e.message || e), 'erro'); }
+      } }),
+      el('button', { class: 'btn', text: m.ativo ? 'Suspender' : 'Reativar', onclick: async () => {
+        try { await global.SB.editarMembro(m.id, { ativo: !m.ativo }); mod.close(); toast('Situação atualizada.'); global.refresh(); } catch (e) { toast(String(e.message || e), 'erro'); }
+      } }),
+    ];
+    if (email) botoes.push(el('button', { class: 'btn', html: global.icHTML('key', 14) + ' Enviar redefinição de senha', onclick: async () => {
+      try { await global.SB.enviarRedefinicaoSenha(email); toast('E-mail de redefinição enviado para ' + email + '.'); } catch (e) { toast(String(e.message || e), 'erro'); }
+    } }));
+    botoes.push(el('button', { class: 'btn primario', text: 'Fechar', onclick: () => mod.close() }));
+    const mod = modal('Acesso de ' + (m.pessoas ? m.pessoas.nome : (email || 'pessoa')), corpo, { wide: true, footer: botoes });
   }
 
   /* ==========================  CONFIGURAÇÃO  ========================== */

@@ -65,7 +65,6 @@
       versao: VERSAO,
       config: { candidato: '', cargo: 'Prefeito(a)', municipio: '', uf: '', ano: new Date().getFullYear(), dataEleicao: '', configurado: false, criadaEm: iso(new Date()) },
       seq: {},
-      acessos: [],
       territorios: [], pessoas: [], equipe: [], equipes: [], liderancas: [],
       interacoes: [], historicoClass: [], tarefas: [], metas: [], demandas: [],
       eventos: [], agenda: [], materiais: [], recursos: [], financeiro: [],
@@ -173,6 +172,7 @@
   const primeiroNome = (pid) => (P(pid) ? P(pid).nome.split(' ').slice(0, 2).join(' ') : '—');
   const terr = (tid) => (tid === 'mun' ? municipio() : idxTerr.get(tid) || null);
   const nomeTerr = (tid) => (terr(tid) ? terr(tid).nome : '—');
+  const nomeEquipe = (eid) => (idxEquipe.get(eid) ? idxEquipe.get(eid).nome : '—');
   const funcaoDe = (pid) => (idxFuncao.get(pid) ? idxFuncao.get(pid).funcao : null);
   const isApoiador = (p) => !!p && ['apoiador', 'participante', 'mobilizador', 'lideranca'].includes(p.classificacao);
   const isSimp = (p) => !!p && p.classificacao !== 'contato';
@@ -492,30 +492,7 @@
     return ps;
   }
 
-  /* ---------------- acessos e perfil em uso ---------------- */
-  function addAcesso(d) {
-    if (estado.acessos.some((a) => a.email && a.email.toLowerCase() === String(d.email || '').toLowerCase())) return 'Este e-mail já tem acesso cadastrado.';
-    const a = {
-      id: id('ac'), pessoaId: d.pessoaId || null, email: (d.email || '').trim(),
-      perfil: d.perfil || 'mobilizador', regiaoId: d.regiaoId || null,
-      ativo: true, criadoEm: hojeIso(), sincronizado: false,
-    };
-    estado.acessos.push(a);
-    gravar();
-    return a;
-  }
-  function editarAcesso(acessoId, d) {
-    const a = estado.acessos.find((x) => x.id === acessoId);
-    if (!a) return null;
-    Object.assign(a, d);
-    gravar();
-    return a;
-  }
-  function removerAcesso(acessoId) {
-    estado.acessos = estado.acessos.filter((x) => x.id !== acessoId);
-    gravar();
-  }
-
+  /* ---------------- perfil em uso ---------------- */
   /** perfil com que o sistema está sendo usado agora */
   function perfilAtual() {
     const remoto = global.SB && global.SB.membro ? global.SB.membro() : null;
@@ -742,7 +719,7 @@
      ========================================================================== */
   const DB = {
     CLASSIF, CLASSIF_LABEL, CLASSIF_COR, ORIGENS, SEGMENTOS, AREAS, TIPO_INTER, TIPO_EVENTO, PRIORIDADES, FUNCOES,
-    P, nome, primeiroNome, terr, nomeTerr, funcaoDe, isApoiador, isSimp,
+    P, nome, primeiroNome, terr, nomeTerr, nomeEquipe, funcaoDe, isApoiador, isSimp,
     stats, serieCrescimento, serieClassificacao, funil, rankingMobilizadores, redeIndicacoes,
     territorioStats, metaAtual, equipeStats, alertas, historicoPessoa,
     salvarConfig, addTerritorio, editarTerritorio, removerTerritorio,
@@ -751,7 +728,7 @@
     addEvento, addAgenda, addMaterial, movimentarMaterial, addRecurso, addLancamento,
     addLocalVotacao, addOcorrencia, addPesquisa,
     zerar, exportarBase, importarBase, substituirBase, carregar, gravar, reindexar, baseVazia,
-    PERFIS, addAcesso, editarAcesso, removerAcesso, simularPerfil,
+    PERFIS, simularPerfil,
     perfilInfo, simulando, podeVer, podeEscrever, ehAdmin,
   };
 
@@ -768,7 +745,6 @@
     locaisVotacao: () => estado.locaisVotacao,
     mapa: () => mapa, staffIds, candidato, coordGeral, responsavelPadrao, configurado,
     HOJE, DIA_ELEICAO: () => (estado.config.dataEleicao ? toDate(estado.config.dataEleicao) : null),
-    acessos: () => estado.acessos,
     perfil: perfilAtual,
     interPorPessoa: () => interPorPessoa, indicadosPor: () => indicadosPor,
     cadastradosPor: () => cadastradosPor, demandasPorPessoa: () => demandasPorPessoa,

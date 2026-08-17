@@ -166,6 +166,40 @@
   const ativarConvite = (token) => rest('rpc/ativar_convite', { method: 'POST', body: JSON.stringify({ p_token: token }) });
   const listarConvites = () => rest('convites?select=*&order=criado_em.desc');
   const aprovarSolicitacao = (id) => rest('rpc/aprovar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id }) });
+
+  /* ---------------- convites da própria equipe (coordenação geral) ---------------- */
+  const criarConviteEquipe = (perfil, regiaoId, nota) => rest('rpc/criar_convite_equipe', {
+    method: 'POST', body: JSON.stringify({ p_perfil: perfil, p_regiao_id: regiaoId || null, p_nota: nota || null }),
+  });
+  const ativarConviteEquipe = (token) => rest('rpc/ativar_convite_equipe', { method: 'POST', body: JSON.stringify({ p_token: token }) });
+  const listarConvitesEquipe = () => rest('convites_equipe?select=*&order=criado_em.desc');
+  const aceitarConviteEquipe = (conviteId, pessoaId) => rest('rpc/aceitar_convite_equipe', {
+    method: 'POST', body: JSON.stringify({ p_convite_id: conviteId, p_pessoa_id: pessoaId || null }),
+  });
+  const cancelarConviteEquipe = (conviteId) => rest('convites_equipe?id=eq.' + conviteId, { method: 'DELETE' });
+  /** quem já ativou um link mas ainda não foi aceito consulta a própria situação */
+  const minhaSolicitacaoEquipe = async () => {
+    if (!autenticado()) return null;
+    const uid = JSON.parse(atob(sessao.access_token.split('.')[1])).sub;
+    const linhas = await rest('convites_equipe?user_id=eq.' + uid + '&aceito=eq.false&select=*');
+    return (linhas && linhas[0]) || null;
+  };
+  /** coordenação geral pede para o Supabase mandar um e-mail de redefinição de senha — nunca vemos a senha */
+  async function enviarRedefinicaoSenha(email) {
+    const r = await fetch(cfg.url.replace(/\/$/, '') + '/auth/v1/recover', {
+      method: 'POST', headers: { apikey: cfg.chave, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error_description || d.msg || 'Não foi possível enviar o link de redefinição.');
+    }
+    return true;
+  }
+  /** lista quem já tem acesso de fato à campanha (tabela membros), com o nome ligado ao cadastro de pessoas */
+  const listarMembros = () => rest('membros?select=*,pessoas(nome)&order=criado_em.desc');
+  const editarMembro = (id, patch) => rest('membros?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
+  const removerMembro = (id) => rest('membros?id=eq.' + id, { method: 'DELETE' });
   const recusarSolicitacao = (id, motivo) => rest('rpc/recusar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id, p_motivo: motivo || null }) });
 
   function sair() {
@@ -305,6 +339,8 @@
     configurado, autenticado, entrar, sair, testar, baixarTudo, enviarFila, instrumentar, carregarMembro,
     cadastrar, solicitarAcesso, souSuperadmin, listarSolicitacoes, aprovarSolicitacao, recusarSolicitacao,
     criarConvite, ativarConvite, listarConvites,
+    criarConviteEquipe, ativarConviteEquipe, listarConvitesEquipe, aceitarConviteEquipe, cancelarConviteEquipe,
+    minhaSolicitacaoEquipe, enviarRedefinicaoSenha, listarMembros, editarMembro, removerMembro,
     membro: () => (membro ? { perfil: membro.perfil, pessoaId: membro.pessoa_id, regiaoId: membro.regiao_id, campanhaId: membro.campanha_id } : null),
     get sessao() { return sessao; },
     get pendentes() { return fila.length; },

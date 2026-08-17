@@ -135,6 +135,7 @@
     if (modo === 'equipes') {
       global.DB.equipes.forEach((eq) => {
         const b = global.DB.terr(eq.territorioId);
+        if (!b || !b.center) return;
         const st = global.DB.equipeStats(eq);
         const g = svg('g', { class: 'mapa-pin' });
         const c = svg('circle', { cx: b.center[0], cy: b.center[1] + 26, r: 12, class: 'mapa-eq', style: 'fill:' + (st.desempenho >= 70 ? '#22d3a5' : st.desempenho >= 45 ? '#f59e0b' : '#f43f5e') });

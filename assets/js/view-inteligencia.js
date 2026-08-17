@@ -74,7 +74,7 @@
       }
       const ps = D.addPesquisa({ titulo: v.titulo, tipo: v.tipo, amostra: +v.amostra, perguntas });
       toast('Pesquisa "' + ps.titulo + '" registrada.');
-    }, { acao: 'Registrar pesquisa', wide: true, nota: 'Pode registrar sem pergunta agora e complementar depois. Cada linha de resposta vira uma barra no gráfico.' });
+    }, { acao: 'Registrar pesquisa', wide: true, nota: 'A pergunta e as respostas são opcionais, mas não podem ser editadas depois de registradas — confira antes de salvar. Cada linha de resposta vira uma barra no gráfico.' });
   }
 
   /* ==========================  PERFORMANCE  ========================== */
@@ -96,7 +96,7 @@
       kpi({ rotulo: 'Melhor equipe', icone: 'crown', valor: sortBy(E, (x) => x.st.desempenho, 'desc')[0].st.desempenho + '%', cor: 'var(--accent)', nota: sortBy(E, (x) => x.st.desempenho, 'desc')[0].eq.nome }),
       kpi({ rotulo: 'Equipes com atraso', icone: 'clock', valor: E.filter((x) => x.st.atrasadas > 0).length, cor: 'var(--danger)', nota: sum(E, (x) => x.st.atrasadas) + ' tarefas atrasadas no total' }),
       kpi({ rotulo: 'Conclusão de tarefas', icone: 'square-check', valor: dec(sum(E, (x) => x.st.conclusao) / E.length) + '%', cor: 'var(--accent-2)', nota: 'média entre todas as equipes' }),
-      kpi({ rotulo: 'Territórios ativos', icone: 'map-pin', valor: T.filter((t) => t.diasSemAtividade < 7).length + '/' + T.length, cor: 'var(--warn)', nota: 'com registro nos últimos 7 dias' }),
+      kpi({ rotulo: 'Territórios ativos', icone: 'map-pin', valor: T.filter((t) => t.diasSemAtividade !== null && t.diasSemAtividade < 7).length + '/' + T.length, cor: 'var(--warn)', nota: 'com registro nos últimos 7 dias' }),
     ]));
 
     const rankBox = el('div');
@@ -125,7 +125,7 @@
     alvo.appendChild(tabela({
       linhas: E, ordPadrao: 'desempenho', tam: 15, onRow: (x) => (location.hash = '#/equipes/' + x.eq.id),
       colunas: [
-        { k: 'equipe', rotulo: 'Equipe', valor: (x) => x.eq.nome, render: (x) => el('div', {}, [el('b', { text: x.eq.nome, style: { fontSize: '13px' } }), el('small', { text: D.terr(x.eq.territorioId).nome + ' · ' + x.eq.integrantes.length + ' integrantes', style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
+        { k: 'equipe', rotulo: 'Equipe', valor: (x) => x.eq.nome, render: (x) => el('div', {}, [el('b', { text: x.eq.nome, style: { fontSize: '13px' } }), el('small', { text: D.nomeTerr(x.eq.territorioId) + ' · ' + x.eq.integrantes.length + ' integrantes', style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
         { k: 'responsavel', rotulo: 'Responsável', valor: (x) => D.nome(x.eq.responsavelId), render: (x) => pessoaCell(x.eq.responsavelId) },
         { k: 'tarefas', rotulo: 'Tarefas', num: true, valor: (x) => x.st.tarefas, render: (x) => x.st.tarefas },
         { k: 'concluidas', rotulo: 'Concluídas', num: true, valor: (x) => x.st.concluidas, render: (x) => x.st.concluidas },
@@ -165,6 +165,8 @@
 
     const saida = el('div');
     alvo.appendChild(saida);
+
+    if (params.get('tipo') && RELATORIOS.some((r) => r.id === params.get('tipo'))) gerar(params.get('tipo'));
 
     function linha(rotulo, valor) { return el('div', { class: 'dado-linha' }, [el('span', { text: rotulo }), el('b', { text: valor })]); }
     function grafico(titulo, sub, desenhar) {
@@ -239,7 +241,7 @@
         corpo.appendChild(tabela({ linhas: D.liderancas, ordPadrao: 'alcanceEstimado', tam: 20, colunas: [
           { k: 'nome', rotulo: 'Liderança', valor: (l) => D.nome(l.pessoaId), render: (l) => D.nome(l.pessoaId) },
           { k: 'segmento', rotulo: 'Segmento' }, { k: 'atuacao', rotulo: 'Atuação' },
-          { k: 'territorio', rotulo: 'Território', valor: (l) => D.terr(l.territorios[0]).nome, render: (l) => D.terr(l.territorios[0]).nome },
+          { k: 'territorio', rotulo: 'Território', valor: (l) => (l.territorios.length ? D.nomeTerr(l.territorios[0]) : '—'), render: (l) => (l.territorios.length ? D.nomeTerr(l.territorios[0]) : '—') },
           { k: 'capacidade', rotulo: 'Capacidade', num: true }, { k: 'alcanceEstimado', rotulo: 'Alcance', num: true, render: (l) => num(l.alcanceEstimado) },
           { k: 'reunioes', rotulo: 'Reuniões', num: true }, { k: 'situacao', rotulo: 'Situação', render: (l) => tag(l.situacao) },
           { k: 'responsavel', rotulo: 'Responsável', valor: (l) => D.nome(l.responsavelId), render: (l) => D.nome(l.responsavelId) },
@@ -284,7 +286,7 @@
         corpo.appendChild(tabela({ linhas: ev, ordPadrao: 'publicoPresente', tam: 15, colunas: [
           { k: 'nome', rotulo: 'Evento' }, { k: 'tipo', rotulo: 'Tipo' },
           { k: 'data', rotulo: 'Data', render: (e) => fmtDate(e.data) },
-          { k: 'territorio', rotulo: 'Território', valor: (e) => D.terr(e.territorioId).nome, render: (e) => D.terr(e.territorioId).nome },
+          { k: 'territorio', rotulo: 'Território', valor: (e) => D.nomeTerr(e.territorioId), render: (e) => D.nomeTerr(e.territorioId) },
           { k: 'publicoPrevisto', rotulo: 'Previsto', num: true, render: (e) => num(e.publicoPrevisto) },
           { k: 'publicoPresente', rotulo: 'Presente', num: true, render: (e) => num(e.publicoPresente) },
           { k: 'novosCadastros', rotulo: 'Cadastros', num: true }, { k: 'novosApoiadores', rotulo: 'Apoiadores', num: true },
@@ -326,7 +328,7 @@
         corpo.appendChild(tabela({ linhas: D.demandas, ordPadrao: 'data', tam: 20, colunas: [
           { k: 'descricao', rotulo: 'Demanda' },
           { k: 'solicitante', rotulo: 'Solicitante', valor: (x) => D.nome(x.solicitanteId), render: (x) => D.nome(x.solicitanteId) },
-          { k: 'territorio', rotulo: 'Território', valor: (x) => D.terr(x.territorioId).nome, render: (x) => D.terr(x.territorioId).nome },
+          { k: 'territorio', rotulo: 'Território', valor: (x) => D.nomeTerr(x.territorioId), render: (x) => D.nomeTerr(x.territorioId) },
           { k: 'area', rotulo: 'Área' }, { k: 'prioridade', rotulo: 'Prioridade' },
           { k: 'data', rotulo: 'Registro', render: (x) => fmtDate(x.data) },
           { k: 'status', rotulo: 'Situação', render: (x) => tag(x.status) },

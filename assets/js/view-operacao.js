@@ -40,7 +40,7 @@
           ]),
           el('div', { style: { flex: 1, minWidth: 0 } }, [
             el('h3', { text: eq.nome, style: { fontSize: '14px' } }),
-            el('p', { class: 'subtexto', text: D.terr(eq.territorioId).nome + ' · ' + eq.integrantes.length + ' integrantes' }),
+            el('p', { class: 'subtexto', text: D.nomeTerr(eq.territorioId) + ' · ' + eq.integrantes.length + ' integrantes' }),
             el('div', { class: 'filtros', style: { marginTop: '8px', marginBottom: 0, gap: '5px' } }, [
               tag(st.concluidas + '/' + st.tarefas + ' tarefas', 'azul'),
               st.atrasadas ? tag(st.atrasadas + ' atrasadas', 'vermelho') : null,
@@ -117,7 +117,7 @@
     const cad = D.pessoas.filter((p) => eq.integrantes.includes(p.cadastradoPor));
 
     alvo.appendChild(el('div', { class: 'filtros' }, [voltar('#/equipes', 'equipes')]));
-    alvo.appendChild(cabecalho(eq.nome, 'Território: ' + D.terr(eq.territorioId).nome + ' · criada em ' + fmtDate(eq.criadaEm) + ' · ' + eq.integrantes.length + ' integrantes', [
+    alvo.appendChild(cabecalho(eq.nome, 'Território: ' + D.nomeTerr(eq.territorioId) + ' · criada em ' + fmtDate(eq.criadaEm) + ' · ' + eq.integrantes.length + ' integrantes', [
       el('button', { class: 'btn pequeno', html: icHTML('plus', 14) + ' Tarefa para a equipe', onclick: () => novaTarefa({ equipeId: eq.id, territorioId: eq.territorioId }) }),
     ]));
     alvo.appendChild(cartao(null, null, el('p', { class: 'subtexto', style: { display: 'flex', gap: '7px', alignItems: 'center' }, html: global.icHTML('target', 14) + ' <span>Objetivo: ' + global.U.esc(eq.objetivo) + '</span>' })));
@@ -235,8 +235,8 @@
           colunas: [
             { k: 'titulo', rotulo: 'Tarefa', render: (t) => el('div', {}, [el('b', { text: t.titulo, style: { fontSize: '13px' } }), el('small', { text: t.objetivo, style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
             { k: 'responsavel', rotulo: 'Responsável', valor: (t) => D.nome(t.responsavelId), render: (t) => pessoaCell(t.responsavelId) },
-            { k: 'equipe', rotulo: 'Equipe', valor: (t) => D.equipes.find((e) => e.id === t.equipeId).nome, render: (t) => el('small', { text: D.equipes.find((e) => e.id === t.equipeId).nome }) },
-            { k: 'territorio', rotulo: 'Território', valor: (t) => D.terr(t.territorioId).nome },
+            { k: 'equipe', rotulo: 'Equipe', valor: (t) => D.nomeEquipe(t.equipeId), render: (t) => el('small', { text: D.nomeEquipe(t.equipeId) }) },
+            { k: 'territorio', rotulo: 'Território', valor: (t) => D.nomeTerr(t.territorioId) },
             { k: 'prazo', rotulo: 'Prazo', render: (t) => el('div', {}, [el('div', { text: fmtDate(t.prazo), style: { fontSize: '12.5px' } }), el('small', { text: relDays(t.prazo), style: { color: t.status === 'atrasada' ? 'var(--danger)' : 'var(--txt-3)', fontSize: '11px' } })]) },
             { k: 'prioridade', rotulo: 'Prioridade', render: (t) => tag(t.prioridade) },
             { k: 'progresso', rotulo: 'Andamento', num: true, render: (t) => el('div', { style: { minWidth: '110px' } }, [el('small', { text: t.progresso + '%' }), barra(t.progresso, 100)]) },
@@ -288,19 +288,19 @@
       });
     };
     const corpo = el('div', {}, [
-      el('div', { class: 'filtros' }, [tag(t.status), tag(t.prioridade), el('span', { class: 'tag azul', text: D.terr(t.territorioId).nome }), el('span', { class: 'tag roxo', text: t.area })]),
+      el('div', { class: 'filtros' }, [tag(t.status), tag(t.prioridade), el('span', { class: 'tag azul', text: D.nomeTerr(t.territorioId) }), el('span', { class: 'tag roxo', text: t.area })]),
       el('p', { class: 'subtexto', text: t.descricao }),
       el('div', { class: 'divisor' }),
       el('div', { class: 'grade g2' }, [
         el('div', {}, [
           dado('Responsável', D.nome(t.responsavelId)),
-          dado('Equipe', D.equipes.find((e) => e.id === t.equipeId).nome),
+          dado('Equipe', D.nomeEquipe(t.equipeId)),
           dado('Objetivo', t.objetivo),
         ]),
         el('div', {}, [
           dado('Criada em', fmtDate(t.criadaEm)),
           dado('Prazo', fmtDate(t.prazo) + ' (' + relDays(t.prazo) + ')'),
-          dado('Onde', D.terr(t.territorioId).nome),
+          dado('Onde', D.nomeTerr(t.territorioId)),
         ]),
       ]),
       el('div', { class: 'divisor' }),
@@ -403,7 +403,17 @@
         { k: 'prazo', rot: 'Prazo', tipo: 'data', largura: 'meia', valor: global.U.iso(global.U.addDays(D.HOJE, 14)) },
         { k: 'escopo', rot: 'Escopo', tipo: 'select', largura: 'meia', opcoes: ['campanha', 'território', 'equipe'] },
         { k: 'periodo', rot: 'Período', tipo: 'select', largura: 'meia', opcoes: ['Semanal', 'Mensal', 'Campanha'] },
-      ], (v) => { D.addMeta({ titulo: v.titulo, alvo: +v.alvo, prazo: v.prazo, escopo: v.escopo, periodo: v.periodo }); toast('Meta criada.'); }, { acao: 'Criar meta' }) }),
+        { k: 'tipo', rot: 'O que medir (só para escopo "campanha")', tipo: 'select', opcoes: ['apoiadores', 'contatos', 'eventos', 'núcleos', 'lideranças'] },
+        { k: 'territorio', rot: 'Território (só para escopo "território")', tipo: 'select', opcoes: [{ v: '', t: 'selecione o bairro' }].concat(D.bairros.map((b) => ({ v: b.id, t: b.nome }))) },
+        { k: 'equipe', rot: 'Equipe (só para escopo "equipe")', tipo: 'select', opcoes: [{ v: '', t: 'selecione a equipe' }].concat(D.equipes.map((e) => ({ v: e.id, t: e.nome }))) },
+      ], (v) => {
+        if (v.escopo === 'território' && !v.territorio) return 'Escolha o bairro desta meta.';
+        if (v.escopo === 'equipe' && !v.equipe) return 'Escolha a equipe desta meta.';
+        const alvoId = v.escopo === 'território' ? v.territorio : v.escopo === 'equipe' ? v.equipe : null;
+        const tipoMap = { 'núcleos': 'nucleos', 'lideranças': 'liderancas' };
+        D.addMeta({ titulo: v.titulo, alvo: +v.alvo, prazo: v.prazo, escopo: v.escopo, periodo: v.periodo, alvoId, tipo: tipoMap[v.tipo] || v.tipo });
+        toast('Meta criada.');
+      }, { acao: 'Criar meta' }) }),
     ]));
 
     alvo.appendChild(el('div', { class: 'grade g4', style: { marginBottom: '16px' } }, [
@@ -495,7 +505,7 @@
     const tab = tabela({
       linhas: D.demandas, ordPadrao: 'data', tam: 20, onRow: detalheDemanda,
       colunas: [
-        { k: 'descricao', rotulo: 'Demanda', render: (d) => el('div', {}, [el('b', { text: d.descricao, style: { fontSize: '13px' } }), el('small', { text: d.area + ' · ' + D.terr(d.territorioId).nome, style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
+        { k: 'descricao', rotulo: 'Demanda', render: (d) => el('div', {}, [el('b', { text: d.descricao, style: { fontSize: '13px' } }), el('small', { text: d.area + ' · ' + D.nomeTerr(d.territorioId), style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
         { k: 'solicitante', rotulo: 'Solicitante', valor: (d) => D.nome(d.solicitanteId), render: (d) => pessoaCell(d.solicitanteId) },
         { k: 'responsavel', rotulo: 'Responsável', valor: (d) => D.nome(d.responsavelId), render: (d) => el('small', { text: D.nome(d.responsavelId) }) },
         { k: 'data', rotulo: 'Registro', render: (d) => fmtDate(d.data) },
@@ -522,10 +532,10 @@
     const txtEnc = el('textarea', { rows: 2, placeholder: 'Ex.: material separado no comitê, retirada prevista para sexta.' });
     const selStatus = el('select', {}, ['aberta', 'em análise', 'encaminhada', 'atendida', 'não atendida'].map((x) => el('option', { value: x, text: x, selected: x === d.status })));
     const corpo = el('div', {}, [
-      el('div', { class: 'filtros' }, [tag(d.status), tag(d.prioridade), el('span', { class: 'tag azul', text: D.terr(d.territorioId).nome }), el('span', { class: 'tag roxo', text: d.area })]),
+      el('div', { class: 'filtros' }, [tag(d.status), tag(d.prioridade), el('span', { class: 'tag azul', text: D.nomeTerr(d.territorioId) }), el('span', { class: 'tag roxo', text: d.area })]),
       el('div', { class: 'grade g2' }, [
         el('div', {}, [dado('Solicitante', D.nome(d.solicitanteId)), dado('Registrada em', fmtDate(d.data)), dado('Prazo', fmtDate(d.prazo))]),
-        el('div', {}, [dado('Responsável', D.nome(d.responsavelId)), dado('Área', d.area), dado('Território', D.terr(d.territorioId).nome)]),
+        el('div', {}, [dado('Responsável', D.nome(d.responsavelId)), dado('Área', d.area), dado('Território', D.nomeTerr(d.territorioId))]),
       ]),
       el('div', { class: 'divisor' }),
       el('div', { class: 'timeline' }, [
@@ -581,7 +591,7 @@
         const rend = e.publicoPresente ? pct(e.publicoPresente, e.publicoPrevisto) : null;
         grade.appendChild(el('div', { class: 'cartao', style: { cursor: 'pointer' }, onclick: () => (location.hash = '#/eventos/' + e.id) }, [
           el('div', { class: 'cartao-topo' }, [
-            el('div', { style: { flex: 1 } }, [el('h3', { text: e.nome, style: { fontSize: '13.5px' } }), el('p', { text: e.tipo + ' · ' + D.terr(e.territorioId).nome })]),
+            el('div', { style: { flex: 1 } }, [el('h3', { text: e.nome, style: { fontSize: '13.5px' } }), el('p', { text: e.tipo + ' · ' + D.nomeTerr(e.territorioId) })]),
             tag(e.status),
           ]),
           el('div', { class: 'dado-linha' }, [el('span', { style: { display: 'flex', gap: '6px', alignItems: 'center' }, html: global.icHTML('calendar-days', 13) + ' Quando' }), el('b', { text: fmtDate(e.data) + ' · ' + e.hora })]),
@@ -639,7 +649,7 @@
       cartao('Organização', 'Responsabilidades e equipe', [
         dado('Responsável', D.nome(e.responsavelId)),
         dado('Equipe', eq ? eq.nome : '—'),
-        dado('Território', D.terr(e.territorioId).nome),
+        dado('Território', D.nomeTerr(e.territorioId)),
         dado('Local', e.local),
         dado('Data e hora', fmtDate(e.data) + ' · ' + e.hora),
         el('div', { class: 'divisor' }),
@@ -657,7 +667,7 @@
         el('div', { class: 'divisor' }),
         el('div', { class: 'subtexto', text: 'Participantes identificados' }),
         el('div', { class: 'lista rolagem', style: { '--h': '200px' } }, participantes.length ? participantes.slice(0, 30).map((i) => listaItem({
-          avatar: avatarPessoa(i.pessoaId, 'pequeno'), titulo: D.nome(i.pessoaId), sub: D.terr(D.P(i.pessoaId).bairroId).nome,
+          avatar: avatarPessoa(i.pessoaId, 'pequeno'), titulo: D.nome(i.pessoaId), sub: D.P(i.pessoaId) ? D.nomeTerr(D.P(i.pessoaId).bairroId) : '—',
           onclick: () => (location.hash = '#/pessoas/' + i.pessoaId),
         })) : [el('div', { class: 'vazio', text: 'Nenhum participante registrado.' })]),
       ]),

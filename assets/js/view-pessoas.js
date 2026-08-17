@@ -15,7 +15,7 @@
       el('button', { class: 'btn pequeno', html: icHTML('download', 14) + ' Exportar', onclick: () => exportarCSV('pessoas-campanha.csv', [
         { rotulo: 'Nome', valor: (p) => p.nome }, { rotulo: 'Telefone', valor: (p) => p.telefone },
         { rotulo: 'Classificação', valor: (p) => D.CLASSIF_LABEL[p.classificacao] },
-        { rotulo: 'Bairro', valor: (p) => D.terr(p.bairroId).nome }, { rotulo: 'Localidade', valor: (p) => p.localidade },
+        { rotulo: 'Bairro', valor: (p) => D.nomeTerr(p.bairroId) }, { rotulo: 'Localidade', valor: (p) => p.localidade },
         { rotulo: 'Zona', valor: (p) => p.zona }, { rotulo: 'Seção', valor: (p) => p.secao },
         { rotulo: 'Origem', valor: (p) => p.origem }, { rotulo: 'Indicado por', valor: (p) => (p.indicadoPor ? D.nome(p.indicadoPor) : '') },
         { rotulo: 'Cadastrado por', valor: (p) => D.nome(p.cadastradoPor) }, { rotulo: 'Data do cadastro', valor: (p) => fmtDate(p.dataCadastro) },
@@ -31,7 +31,7 @@
       colunas: [
         { k: 'nome', rotulo: 'Pessoa', render: (p) => pessoaCell(p.id, D.funcaoDe(p.id) || (p.tipos.slice(0, 3).join(', ')) ) },
         { k: 'classificacao', rotulo: 'Classificação', render: (p) => tag(D.CLASSIF_LABEL[p.classificacao], p.classificacao === 'lideranca' ? 'vermelho' : p.classificacao === 'mobilizador' ? 'laranja' : p.classificacao === 'apoiador' ? 'verde' : p.classificacao === 'participante' ? 'roxo' : p.classificacao === 'simpatizante' ? 'azul' : 'cinza') },
-        { k: 'bairro', rotulo: 'Território', valor: (p) => D.terr(p.bairroId).nome, render: (p) => el('div', {}, [el('div', { text: D.terr(p.bairroId).nome, style: { fontSize: '12.5px' } }), el('small', { text: p.localidade + ' · zona ' + p.zona + ' · seção ' + p.secao, style: { color: 'var(--txt-3)', fontSize: '11px' } })]) },
+        { k: 'bairro', rotulo: 'Território', valor: (p) => D.nomeTerr(p.bairroId), render: (p) => el('div', {}, [el('div', { text: D.nomeTerr(p.bairroId), style: { fontSize: '12.5px' } }), el('small', { text: p.localidade + ' · zona ' + p.zona + ' · seção ' + p.secao, style: { color: 'var(--txt-3)', fontSize: '11px' } })]) },
         { k: 'origem', rotulo: 'Origem', render: (p) => el('div', {}, [el('div', { text: p.origem, style: { fontSize: '12.5px' } }), p.indicadoPor ? el('small', { text: 'por ' + D.nome(p.indicadoPor), style: { color: 'var(--txt-3)', fontSize: '11px' } }) : null]) },
         { k: 'interacoes', rotulo: 'Interações', num: true, valor: (p) => (D.interPorPessoa.get(p.id) || []).length, render: (p) => el('span', { class: 'badge-num', text: (D.interPorPessoa.get(p.id) || []).length }) },
         { k: 'indicados', rotulo: 'Indicou', num: true, valor: (p) => (D.indicadosPor.get(p.id) || []).length, render: (p) => num((D.indicadosPor.get(p.id) || []).length) },
@@ -67,6 +67,7 @@
     const D = global.DB, p = D.P(id);
     if (!p) return alvo.appendChild(cartao('Pessoa não encontrada', null, el('p', { class: 'subtexto', text: 'O registro solicitado não existe nesta base.' })));
     const b = D.terr(p.bairroId);
+    const nomeBairro = D.nomeTerr(p.bairroId);
     const hist = D.historicoPessoa(id);
     const indicados = D.indicadosPor.get(id) || [];
     const cadastrados = D.cadastradosPor.get(id) || [];
@@ -83,7 +84,7 @@
           el('div', { class: 'filtros', style: { marginTop: '7px', marginBottom: 0 } }, [
             tag(D.CLASSIF_LABEL[p.classificacao], p.classificacao === 'lideranca' ? 'vermelho' : p.classificacao === 'mobilizador' ? 'laranja' : 'verde'),
             D.funcaoDe(id) ? tag(D.funcaoDe(id), 'roxo') : null,
-            tag(b.nome, 'azul'),
+            tag(nomeBairro, 'azul'),
             el('span', { class: 'tag', text: 'zona ' + p.zona + ' · seção ' + p.secao }),
           ]),
         ]),
@@ -112,8 +113,8 @@
       dado('Gênero', p.genero === 'F' ? 'Feminino' : 'Masculino'),
       el('div', { class: 'divisor' }),
       dado('Município', D.municipio.nome),
-      dado('Região', D.terr(b.paiId).nome),
-      dado('Bairro', b.nome),
+      dado('Região', b && b.paiId ? D.nomeTerr(b.paiId) : '—'),
+      dado('Bairro', nomeBairro),
       dado('Localidade', p.localidade),
       dado('Zona / seção', p.zona + ' / ' + p.secao),
       el('div', { class: 'divisor' }),
@@ -151,7 +152,7 @@
         dado('Alcance estimado', num(lider.alcanceEstimado) + ' pessoas'),
         dado('Reuniões realizadas', num(lider.reunioes)),
         dado('Responsável na campanha', D.nome(lider.responsavelId)),
-        dado('Territórios de atuação', lider.territorios.map((t) => D.terr(t).nome).join(', ')),
+        dado('Territórios de atuação', lider.territorios.length ? lider.territorios.map((t) => D.nomeTerr(t)).join(', ') : '—'),
         el('div', { class: 'divisor' }),
         el('div', { class: 'subtexto', text: 'Compromissos assumidos' }),
         el('div', { class: 'lista' }, lider.compromissos.length ? lider.compromissos.map((c) => listaItem({ icone: 'handshake', titulo: c })) : [el('div', { class: 'vazio', text: 'Nenhum compromisso registrado até o momento.' })]),
@@ -214,8 +215,8 @@
                el('button', { class: 'btn primario', text: 'Salvar no histórico', onclick: () => {
                  const txt = txtResumo.value.trim();
                  if (txt.length < 4) { txtResumo.focus(); return toast('Descreva o que aconteceu no contato.', 'erro'); }
-                 D.addInteracao(p.id, { tipo: selTipo.value, canal: selCanal.value, resumo: txt, responsavelId: D.coordGeral.id, retorno: !inpEnc.value.trim() });
-                 if (inpEnc.value.trim()) D.addInteracao(p.id, { tipo: 'Encaminhamento', canal: selCanal.value, resumo: inpEnc.value.trim(), responsavelId: D.coordGeral.id });
+                 D.addInteracao(p.id, { tipo: selTipo.value, canal: selCanal.value, resumo: txt, responsavelId: D.responsavelPadrao(), retorno: !inpEnc.value.trim() });
+                 if (inpEnc.value.trim()) D.addInteracao(p.id, { tipo: 'Encaminhamento', canal: selCanal.value, resumo: inpEnc.value.trim(), responsavelId: D.responsavelPadrao() });
                  m.close();
                  toast('Interação registrada no histórico de ' + p.nome.split(' ')[0] + '.');
                  global.refresh();
@@ -240,7 +241,7 @@
       footer: [el('button', { class: 'btn', text: 'Cancelar', onclick: () => m.close() }),
                el('button', { class: 'btn primario', text: 'Confirmar', onclick: () => {
                  D.setClassificacao(p.id, sel.value);
-                 if (obs.value.trim()) D.addInteracao(p.id, { tipo: 'Encaminhamento', canal: 'Presencial', resumo: obs.value.trim(), responsavelId: D.coordGeral.id });
+                 if (obs.value.trim()) D.addInteracao(p.id, { tipo: 'Encaminhamento', canal: 'Presencial', resumo: obs.value.trim(), responsavelId: D.responsavelPadrao() });
                  m.close();
                  toast(p.nome.split(' ')[0] + ' agora é ' + D.CLASSIF_LABEL[sel.value] + '.');
                  global.refresh();
@@ -255,7 +256,7 @@
     const selArea = el('select', {}, D.AREAS.map((a) => el('option', { value: a, text: a })));
     const selPri = el('select', {}, D.PRIORIDADES.map((x) => el('option', { value: x, text: x, selected: x === 'média' })));
     const form = el('div', {}, [
-      el('p', { class: 'subtexto', text: 'Solicitante: ' + p.nome + ' · ' + D.terr(p.bairroId).nome }),
+      el('p', { class: 'subtexto', text: 'Solicitante: ' + p.nome + ' · ' + D.nomeTerr(p.bairroId) }),
       el('div', { class: 'campo', style: { marginTop: '12px' } }, [el('label', { text: 'O que está sendo pedido *' }), desc]),
       el('div', { class: 'campo-linha' }, [
         el('div', { class: 'campo' }, [el('label', { text: 'Área responsável' }), selArea]),
@@ -317,7 +318,7 @@
       colunas: [
         { k: 'nome', rotulo: 'Liderança', valor: (l) => l.p.nome, render: (l) => pessoaCell(l.pessoaId, l.atuacao) },
         { k: 'segmento', rotulo: 'Segmento', render: (l) => tag(l.segmento, 'roxo') },
-        { k: 'territorio', rotulo: 'Territórios', valor: (l) => D.terr(l.territorios[0]).nome, render: (l) => l.territorios.map((t) => D.terr(t).nome).join(', ') },
+        { k: 'territorio', rotulo: 'Territórios', valor: (l) => (l.territorios.length ? D.nomeTerr(l.territorios[0]) : '—'), render: (l) => (l.territorios.length ? l.territorios.map((t) => D.nomeTerr(t)).join(', ') : '—') },
         { k: 'capacidade', rotulo: 'Capacidade', num: true, render: (l) => estrelas(l.capacidade) },
         { k: 'alcanceEstimado', rotulo: 'Alcance', num: true, render: (l) => num(l.alcanceEstimado) },
         { k: 'reunioes', rotulo: 'Reuniões', num: true },
@@ -391,7 +392,7 @@
         el('p', { class: 'subtexto', text: p.nome + ' cadastrou ' + r.cadastros + ' pessoas. Dessas, ' + r.simpatizantes + ' tornaram-se simpatizantes, ' + r.apoiadores + ' declararam apoio e ' + r.participantes + ' começaram a participar de atividades.' }),
         el('div', { class: 'divisor' }),
         el('div', { class: 'lista rolagem', style: { '--h': '260px' } }, sortBy(lista, (x) => x.dataCadastro, 'desc').slice(0, 40).map((x) => listaItem({
-          avatar: avatarPessoa(x.id, 'pequeno'), titulo: x.nome, sub: D.terr(x.bairroId).nome + ' · ' + fmtDate(x.dataCadastro),
+          avatar: avatarPessoa(x.id, 'pequeno'), titulo: x.nome, sub: D.nomeTerr(x.bairroId) + ' · ' + fmtDate(x.dataCadastro),
           tag: tag(D.CLASSIF_LABEL[x.classificacao]), onclick: () => { location.hash = '#/pessoas/' + x.id; },
         }))),
       ]);

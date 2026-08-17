@@ -27,7 +27,7 @@
     const acima = T.filter((t) => t.metaPct >= 100).length;
     const paradas = T.filter((t) => t.diasSemAtividade >= 7);
     alvo.appendChild(el('div', { class: 'grade g4', style: { marginBottom: '16px' } }, [
-      kpi({ rotulo: 'Cobertura do eleitorado', icone: 'target', valor: dec(sum(T, (t) => t.apoiadores) / D.municipio.eleitores * 100) + '%', nota: num(sum(T, (t) => t.apoiadores)) + ' apoiadores declarados' }),
+      kpi({ rotulo: 'Cobertura do eleitorado', icone: 'target', valor: pct(sum(T, (t) => t.apoiadores), D.municipio.eleitores) + '%', nota: num(sum(T, (t) => t.apoiadores)) + ' apoiadores declarados' }),
       kpi({ rotulo: 'Bairros na meta', icone: 'square-check', valor: acima + '/' + T.length, cor: 'var(--accent-2)', nota: 'territórios que atingiram a meta prevista' }),
       kpi({ rotulo: 'Territórios parados', icone: 'triangle-alert', valor: paradas.length, cor: 'var(--danger)', nota: 'sem registro de atividade há 7 dias ou mais' }),
       kpi({ rotulo: 'Lideranças em campo', icone: 'star', valor: num(sum(T, (t) => t.liderancas)), cor: 'var(--rose)', nota: 'com atuação declarada em algum território' }),
@@ -179,7 +179,7 @@
     const locais = D.locaisVotacao.filter((l) => l.territorioId === id);
 
     alvo.appendChild(el('div', { class: 'filtros' }, [voltar('#/territorios', 'territórios')]));
-    alvo.appendChild(cabecalho(b.nome, D.terr(b.paiId).nome + ' · zona eleitoral ' + b.zona + ' · ' + num(b.eleitores) + ' eleitores estimados · localidades: ' + b.localidades.join(', '), [
+    alvo.appendChild(cabecalho(b.nome, (b.paiId ? D.nomeTerr(b.paiId) : 'sem região') + ' · zona eleitoral ' + b.zona + ' · ' + num(b.eleitores) + ' eleitores estimados · localidades: ' + b.localidades.join(', '), [
       el('button', { class: 'btn pequeno', html: icHTML('megaphone', 14) + ' Novo evento aqui', onclick: () => global.novoEvento({ territorioId: b.id }) }),
       el('button', { class: 'btn pequeno primario', html: icHTML('square-check', 14) + ' Nova tarefa', onclick: () => global.novaTarefa({ territorioId: b.id, titulo: '' }) }),
     ]));
@@ -278,28 +278,30 @@
     const fiscaisOk = sum(L, (l) => l.fiscaisConfirmados);
     const ocorr = L.flatMap((l) => l.ocorrencias.map((o) => Object.assign({}, o, { local: l })));
 
+    const novoLocal = () => formModal('Novo local de votação', [
+      { k: 'nome', rot: 'Nome do local', tipo: 'texto', obrigatorio: true, dica: 'Ex.: E.M. Professor Antônio Silva' },
+      { k: 'territorioId', rot: 'Bairro', tipo: 'select', largura: 'meia', opcoes: D.bairros.map((b) => ({ v: b.id, t: b.nome })) },
+      { k: 'plantao', rot: 'Plantão', tipo: 'select', largura: 'meia', opcoes: ['manhã', 'tarde', 'dia inteiro'] },
+      { k: 'secoes', rot: 'Número de seções', tipo: 'numero', largura: 'meia', obrigatorio: true },
+      { k: 'eleitores', rot: 'Eleitores no local', tipo: 'numero', largura: 'meia' },
+      { k: 'coordenadorId', rot: 'Coordenador(a) do local', tipo: 'select', opcoes: D.equipe.map((e) => ({ v: e.pessoaId, t: D.nome(e.pessoaId) })) },
+    ], (v) => { D.addLocalVotacao(v); toast('Local de votação cadastrado.'); }, { acao: 'Cadastrar local' });
+
     alvo.appendChild(cabecalho('Dia da eleição', (D.DIA_ELEICAO ? 'Operação do município em ' + fmtDate(D.DIA_ELEICAO) : 'Data da eleição não configurada') + ' · ' + L.length + ' locais de votação e ' + totalSecoes + ' seções', [
-      el('button', { class: 'btn pequeno primario', html: icHTML('plus', 14) + ' Novo local de votação', onclick: () => formModal('Novo local de votação', [
-        { k: 'nome', rot: 'Nome do local', tipo: 'texto', obrigatorio: true, dica: 'Ex.: E.M. Professor Antônio Silva' },
-        { k: 'territorioId', rot: 'Bairro', tipo: 'select', largura: 'meia', opcoes: D.bairros.map((b) => ({ v: b.id, t: b.nome })) },
-        { k: 'plantao', rot: 'Plantão', tipo: 'select', largura: 'meia', opcoes: ['manhã', 'tarde', 'dia inteiro'] },
-        { k: 'secoes', rot: 'Número de seções', tipo: 'numero', largura: 'meia', obrigatorio: true },
-        { k: 'eleitores', rot: 'Eleitores no local', tipo: 'numero', largura: 'meia' },
-        { k: 'coordenadorId', rot: 'Coordenador(a) do local', tipo: 'select', opcoes: D.equipe.map((e) => ({ v: e.pessoaId, t: D.nome(e.pessoaId) })) },
-      ], (v) => { D.addLocalVotacao(v); toast('Local de votação cadastrado.'); }, { acao: 'Cadastrar local' }) }),
+      el('button', { class: 'btn pequeno primario', html: icHTML('plus', 14) + ' Novo local de votação', onclick: novoLocal }),
       L.length ? el('button', { class: 'btn pequeno', html: icHTML('clipboard-list', 14) + ' Escala de plantões', onclick: () => {
         const porTurno = global.U.by(L, 'plantao');
         global.U.modal('Escala de plantões', el('div', {}, Array.from(porTurno.keys()).map((t) => el('div', { style: { marginBottom: '14px' } }, [
           el('h3', { text: 'Plantão ' + t, style: { fontSize: '14px', marginBottom: '6px' } }),
           el('p', { class: 'subtexto', text: porTurno.get(t).length + ' locais · ' + sum(porTurno.get(t), (l) => l.secoes) + ' seções · ' + sum(porTurno.get(t), (l) => l.fiscaisConfirmados) + ' fiscais confirmados' }),
           el('div', { class: 'lista' }, porTurno.get(t).map((l) => listaItem({
-            icone: 'vote', titulo: l.nome, sub: D.terr(l.territorioId).nome + ' · coord. ' + D.nome(l.coordenadorId),
+            icone: 'vote', titulo: l.nome, sub: D.nomeTerr(l.territorioId) + ' · coord. ' + D.nome(l.coordenadorId),
             valor: l.fiscaisConfirmados + '/' + l.fiscaisNecessarios, nota: 'fiscais',
           }))),
         ]))), { wide: true });
       } }) : null,
       L.length ? el('button', { class: 'btn pequeno primario', html: icHTML('triangle-alert', 14) + ' Registrar ocorrência', onclick: () => formModal('Registrar ocorrência', [
-        { k: 'localId', rot: 'Local de votação', tipo: 'select', obrigatorio: true, opcoes: L.map((l) => ({ v: l.id, t: l.nome + ' — ' + D.terr(l.territorioId).nome })) },
+        { k: 'localId', rot: 'Local de votação', tipo: 'select', obrigatorio: true, opcoes: L.map((l) => ({ v: l.id, t: l.nome + ' — ' + D.nomeTerr(l.territorioId) })) },
         { k: 'texto', rot: 'O que está acontecendo', tipo: 'textarea', linhas: 2, obrigatorio: true },
         { k: 'gravidade', rot: 'Gravidade', tipo: 'select', largura: 'meia', opcoes: ['baixa', 'média', 'alta'], valor: 'média' },
         { k: 'hora', rot: 'Hora', tipo: 'hora', largura: 'meia' },
@@ -310,7 +312,7 @@
       alvo.appendChild(global.UI.vazio({
         icone: 'vote', titulo: 'Nenhum local de votação cadastrado',
         texto: 'Cadastre os locais de votação do município para organizar fiscais, plantões e transporte no dia da eleição.',
-        acao: { rotulo: 'Cadastrar primeiro local', onclick: () => global.U.$('.cabecalho .btn.primario').click() },
+        acao: { rotulo: 'Cadastrar primeiro local', onclick: () => novoLocal() },
       }));
       return;
     }
@@ -333,7 +335,7 @@
 
     const ocorrBox = el('div', { class: 'lista rolagem', style: { '--h': '260px' } }, sortBy(ocorr, (o) => o.hora).map((o) => listaItem({
       icone: o.gravidade === 'alta' ? 'circle-alert' : o.gravidade === 'média' ? 'circle-alert' : 'circle-alert',
-      titulo: o.texto, sub: o.hora + ' · ' + o.local.nome + ' · ' + D.terr(o.local.territorioId).nome, tag: tag(o.status),
+      titulo: o.texto, sub: o.hora + ' · ' + o.local.nome + ' · ' + D.nomeTerr(o.local.territorioId), tag: tag(o.status),
     })));
 
     alvo.appendChild(el('div', { class: 'grade g2', style: { marginBottom: '16px' } }, [
@@ -344,7 +346,7 @@
     const tab = tabela({
       linhas: L, ordPadrao: 'eleitores', tam: 20,
       colunas: [
-        { k: 'nome', rotulo: 'Local de votação', render: (l) => el('div', {}, [el('b', { text: l.nome, style: { fontSize: '13px' } }), el('small', { text: D.terr(l.territorioId).nome + ' · zona ' + l.zona, style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
+        { k: 'nome', rotulo: 'Local de votação', render: (l) => el('div', {}, [el('b', { text: l.nome, style: { fontSize: '13px' } }), el('small', { text: D.nomeTerr(l.territorioId) + ' · zona ' + l.zona, style: { display: 'block', color: 'var(--txt-3)', fontSize: '11px' } })]) },
         { k: 'secoes', rotulo: 'Seções', num: true },
         { k: 'eleitores', rotulo: 'Eleitores', num: true, render: (l) => num(l.eleitores) },
         { k: 'cobertura', rotulo: 'Fiscais', num: true, valor: (l) => l.fiscaisConfirmados / l.fiscaisNecessarios,
@@ -360,7 +362,7 @@
       { k: 'zona', tipo: 'chips', rotulo: 'Todas as zonas', opcoes: ['021', '034', '057'].map((z) => ({ v: z, t: 'Zona ' + z, n: L.filter((l) => l.zona === z).length })) },
     ], (e) => {
       let l = L;
-      if (e.busca) { const q = global.U.norm(e.busca); l = l.filter((x) => global.U.norm(x.nome).includes(q) || global.U.norm(D.terr(x.territorioId).nome).includes(q)); }
+      if (e.busca) { const q = global.U.norm(e.busca); l = l.filter((x) => global.U.norm(x.nome).includes(q) || global.U.norm(D.nomeTerr(x.territorioId)).includes(q)); }
       if (e.zona !== 'todos') l = l.filter((x) => x.zona === e.zona);
       return tab.atualizar(l);
     }));

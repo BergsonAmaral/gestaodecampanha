@@ -197,7 +197,7 @@
         indicadoPor: ind ? ind.id : null, obs: campos.obs.value.trim(),
       });
       m.close();
-      toast(nome.split(' ')[0] + ' foi cadastrado(a) e vinculado(a) a ' + D.terr(p.bairroId).nome + '.');
+      toast(nome.split(' ')[0] + ' foi cadastrado(a)' + (p.bairroId ? ' e vinculado(a) a ' + D.terr(p.bairroId).nome : '') + '.');
       location.hash = '#/pessoas/' + p.id;
     };
     const m = global.U.modal('Registro rápido de pessoa', form, {
@@ -219,9 +219,9 @@
     const D = global.DB;
     const res = [];
     D.pessoas.filter((p) => norm(p.nome).includes(q)).slice(0, 6).forEach((p) =>
-      res.push({ cat: 'Pessoas', txt: p.nome, sub: D.CLASSIF_LABEL[p.classificacao] + ' · ' + D.terr(p.bairroId).nome, rota: '#/pessoas/' + p.id, ini: initials(p.nome) }));
+      res.push({ cat: 'Pessoas', txt: p.nome, sub: D.CLASSIF_LABEL[p.classificacao] + ' · ' + (p.bairroId && D.terr(p.bairroId) ? D.terr(p.bairroId).nome : 'sem bairro'), rota: '#/pessoas/' + p.id, ini: initials(p.nome) }));
     D.bairros.filter((b) => norm(b.nome).includes(q)).slice(0, 4).forEach((b) =>
-      res.push({ cat: 'Territórios', txt: b.nome, sub: D.terr(b.paiId).nome + ' · ' + num(b.eleitores) + ' eleitores', rota: '#/territorio/' + b.id, icone: 'map' }));
+      res.push({ cat: 'Territórios', txt: b.nome, sub: (b.paiId && D.terr(b.paiId) ? D.terr(b.paiId).nome : 'sem região') + ' · ' + num(b.eleitores) + ' eleitores', rota: '#/territorio/' + b.id, icone: 'map' }));
     D.equipes.filter((e) => norm(e.nome).includes(q)).slice(0, 4).forEach((e) =>
       res.push({ cat: 'Equipes', txt: e.nome, sub: e.integrantes.length + ' integrantes', rota: '#/equipes/' + e.id, icone: 'users-round' }));
     D.eventos.filter((e) => norm(e.nome).includes(q)).slice(0, 4).forEach((e) =>
@@ -366,6 +366,7 @@
   /* ==========================  ENTRADA  ========================== */
   const CHAVE_PENDENTE = 'sigc.bootstrapPendente';
   const CHAVE_TOKEN_PENDENTE = 'sigc.tokenConvitePendente';
+  const CHAVE_TOKEN_EQUIPE_PENDENTE = 'sigc.tokenConviteEquipePendente';
 
   /** depois que a conta foi confirmada por e-mail: registra a solicitação de acesso normal
    *  (quem veio por link de convite já foi ativado na hora — ver montarAtivacaoConvite) */
@@ -679,6 +680,78 @@
     if (global.SB.autenticado()) tentarAtivar();
   }
 
+  /** tela de ativação de convite da EQUIPE (dado pela coordenação geral, não pela administração da plataforma) */
+  function montarAtivacaoConviteEquipe(token) {
+    document.body.innerHTML = '';
+    document.documentElement.dataset.tema = store.get('tema', 'claro');
+    const erro = el('div', { class: 'login-erro', style: { display: 'none' } });
+    const aviso = el('div', { class: 'login-aviso', style: { display: 'none' } });
+    const mostrarErro = (msg) => { erro.textContent = msg; erro.style.display = 'block'; aviso.style.display = 'none'; };
+    const mostrarAviso = (msg) => { aviso.textContent = msg; aviso.style.display = 'block'; erro.style.display = 'none'; };
+
+    const email = el('input', { type: 'email', placeholder: 'seu e-mail', autocomplete: 'username' });
+    const senha = el('input', { type: 'password', placeholder: 'crie uma senha (mínimo 6 caracteres)', autocomplete: 'new-password' });
+    const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('sparkles', 15) + ' Criar minha conta' });
+
+    async function tentarAtivar() {
+      try {
+        const r = await global.SB.ativarConviteEquipe(token);
+        if (r && r.ativado) return montarAguardandoAprovacao();
+        global.SB.sair();
+        mostrarErro(r && r.motivo === 'já tem acesso' ? 'Esta conta já tem acesso a uma campanha — entre normalmente.' : 'Este link já foi usado ou não é mais válido. Peça um novo à coordenação geral.');
+      } catch (e) {
+        mostrarErro(String(e.message || e));
+      }
+    }
+
+    const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
+      ev.preventDefault();
+      erro.style.display = 'none'; aviso.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Criando…';
+      try {
+        const r = await global.SB.cadastrar(email.value.trim(), senha.value);
+        if (!r.access_token) {
+          localStorage.setItem(CHAVE_TOKEN_EQUIPE_PENDENTE, token);
+          mostrarAviso('Conta criada! Este projeto pede confirmação por e-mail — verifique sua caixa de entrada, clique no link recebido e depois abra de novo o link de acesso que você usou agora para concluir.');
+          btn.disabled = false; btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar minha conta';
+          return;
+        }
+        await tentarAtivar();
+      } catch (e) {
+        mostrarErro(String(e.message || e));
+        btn.disabled = false; btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar minha conta';
+      }
+    }}, [
+      el('div', { class: 'campo' }, [el('label', { text: 'E-mail' }), email]),
+      el('div', { class: 'campo' }, [el('label', { text: 'Senha' }), senha]),
+      erro, aviso, btn,
+    ]);
+
+    document.body.appendChild(el('div', { class: 'login-tela' }, [
+      el('div', { class: 'login-caixa' }, [
+        el('img', { class: 'login-logo', src: 'assets/img/logo-completa.png', alt: 'Sistema de Gestão de Campanha' }),
+        el('p', { class: 'subtexto', text: 'Você foi convidado(a) para a equipe de uma campanha. Crie seu e-mail e senha — a coordenação geral libera o seu acesso em seguida.' }),
+        form,
+      ]),
+    ]));
+    setTimeout(() => email.focus(), 60);
+
+    if (global.SB.autenticado()) tentarAtivar();
+  }
+
+  /** tela de espera para quem já ativou o link da equipe mas ainda não foi aceito pela coordenação */
+  function montarAguardandoAprovacao() {
+    document.body.innerHTML = '';
+    document.documentElement.dataset.tema = store.get('tema', 'claro');
+    document.body.appendChild(el('div', { class: 'login-tela' }, [
+      el('div', { class: 'login-caixa' }, [
+        el('img', { class: 'login-logo', src: 'assets/img/logo-completa.png', alt: 'Sistema de Gestão de Campanha' }),
+        el('p', { class: 'subtexto', text: 'Sua conta foi criada. Falta a coordenação geral liberar o seu acesso em Acessos — volte a entrar depois.' }),
+        el('button', { class: 'btn primario', style: { marginTop: '14px', width: '100%' }, html: global.icHTML('log-out', 15) + ' Sair', onclick: () => { global.SB.sair(); location.reload(); } }),
+      ]),
+    ]));
+  }
+
   async function iniciarApp() {
     document.body.innerHTML = '';
     document.documentElement.dataset.tema = store.get('tema', 'claro');
@@ -699,7 +772,9 @@
         return iniciarApp();
       }
       if (await global.SB.souSuperadmin()) return montarPainelAdmin();
-      global.SB.sair(); // sessão sem vínculo de acesso e sem ser superadmin — volta para o login
+      const pendente = await global.SB.minhaSolicitacaoEquipe();
+      if (pendente) return montarAguardandoAprovacao();
+      global.SB.sair(); // sessão sem vínculo de acesso, sem ser superadmin e sem convite pendente — volta para o login
     }
     if (global.SB.configurado()) return montarLogin(() => entrarPosLogin());
     return iniciarApp();
@@ -713,6 +788,8 @@
   document.addEventListener('DOMContentLoaded', () => {
     const m = location.hash.match(/^#\/ativar\/([0-9a-fA-F-]{36})/);
     if (m) return montarAtivacaoConvite(m[1]);
+    const me = location.hash.match(/^#\/ativar-equipe\/([0-9a-fA-F-]{36})/);
+    if (me) return montarAtivacaoConviteEquipe(me[1]);
     entrarNaPlataforma();
   });
 })(window);

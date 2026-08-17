@@ -48,46 +48,54 @@ cerca de 730 KB). Para a equipe trabalhar junto, conecte o Supabase.
 As escritas feitas nas telas entram numa fila local e sobem para o banco; sem internet elas
 ficam guardadas e são enviadas quando a conexão volta.
 
-### Acesso por aprovação (o site não é gratuito — alguém decide quem entra)
+### Acesso por convite (o site não é gratuito — alguém decide quem entra)
 
-O sistema tem dois papéis fora das campanhas:
+O sistema tem três papéis fora do dia a dia da campanha:
 
-- **Superadmin** (você): administra a plataforma, aprova ou recusa pedidos de
-  acesso. Não pertence a nenhuma campanha e não vê os dados de campanha de
-  ninguém — só decide quem entra.
+- **Superadmin** (você): administra a plataforma. Não pertence a nenhuma
+  campanha e não vê dados de campanha nenhum — só convida quem vira
+  coordenação geral.
 - **Coordenação geral de uma campanha**: quem usa o sistema para a própria
-  eleição.
+  eleição, preenche os dados reais (candidatura, município, data da eleição)
+  e convida o resto da equipe.
+- **Resto da equipe**: entra por um link gerado pela própria coordenação
+  geral, em **Acessos**.
 
-Fluxo de quem quer usar o sistema:
-1. Na tela de login, clica em **"Ainda não tem acesso? Solicitar para sua
-   campanha"**, cria a própria conta (e-mail/senha) e preenche os dados da
-   candidatura.
-2. Isso cria só a conta e um **pedido pendente** — nenhuma campanha é criada
-   ainda.
-3. Você entra com sua conta de superadmin, vê o pedido em **Administração da
-   plataforma** e clica em **Aprovar** (ou Recusar, com motivo opcional).
-4. Só depois disso a campanha é criada e a pessoa consegue entrar.
+Os dois convites funcionam do mesmo jeito — o link é o próprio código de
+acesso, não existe pareamento por e-mail que possa ser digitado errado:
+
+1. Quem convida (superadmin, ou coordenação geral para a própria equipe)
+   gera um link e manda por WhatsApp, e-mail etc.
+2. Quem recebe abre o link, escolhe o próprio e-mail e senha.
+3. No convite do **superadmin**, isso já libera o acesso na hora, como
+   coordenação geral de uma campanha nova e vazia — os dados reais da
+   campanha são preenchidos depois, em Configurações.
+4. No convite da **coordenação geral para a equipe**, criar a conta não
+   libera o acesso sozinho: a pessoa fica "aguardando aprovação" até a
+   coordenação geral clicar em **Aceitar** em Acessos — evita liberar acesso
+   para quem abriu o link errado por engano.
 
 **Configuração (uma vez só, no SQL Editor, nesta ordem):**
 1. `01_schema.sql` e `02_rls.sql` (estrutura e políticas).
-2. `04_bootstrap.sql` (define as funções; o fluxo automático dela é
-   desativado no passo seguinte).
-3. `05_superadmin.sql` (cria o fluxo de solicitação/aprovação e desativa o
-   acesso direto do `bootstrap_coordenacao`).
-4. Crie a **sua própria conta** — pela tela de login (usando "Solicitar
-   acesso" só para gerar o login; ignore o pedido de campanha que isso cria)
-   ou direto em Authentication → Users no painel do Supabase.
-5. Rode uma vez, trocando o e-mail:
+2. `05_superadmin.sql` (cria a tabela de administradores da plataforma).
+3. `06_convites.sql` e `07_convite_por_link.sql` (convite do superadmin para
+   um novo coordenador, por link).
+4. `08_convites_equipe.sql` (convite da coordenação geral para a própria
+   equipe, por link, com aceite).
+5. Crie a **sua própria conta** direto em Authentication → Users no painel
+   do Supabase.
+6. Rode uma vez, trocando o e-mail:
    ```sql
    insert into plataforma_admins (user_id, nome)
    select id, 'Seu nome' from auth.users where email = 'seu-email@exemplo.com';
    ```
-6. Entre no sistema com essa conta — você cai direto no painel de
-   administração, não no sistema de campanha.
+7. Entre no sistema com essa conta — você cai direto no painel de
+   administração, não no sistema de campanha. Gere ali o primeiro link de
+   coordenação geral.
 
 Se o projeto do Supabase exigir confirmação por e-mail (padrão), a pessoa
-recebe um aviso para confirmar e, ao entrar pela primeira vez depois de
-confirmar, o pedido é registrado automaticamente.
+recebe um aviso para confirmar e, ao abrir o mesmo link de novo depois de
+confirmar, a ativação é concluída automaticamente.
 
 ### Perfis de acesso (seção 28 do documento)
 

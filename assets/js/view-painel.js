@@ -13,7 +13,7 @@
 
     alvo.appendChild(cabecalho(
       'Painel geral da campanha',
-      'Como está a campanha hoje — ' + fmtDate(D.HOJE) + ' · faltam ' + s.diasEleicao + ' dias para a eleição',
+      'Como está a campanha hoje — ' + fmtDate(D.HOJE) + (s.diasEleicao !== null ? ' · faltam ' + s.diasEleicao + ' dias para a eleição' : ''),
       [
         el('button', { class: 'btn pequeno', html: icHTML('map', 14) + ' Ver território', onclick: () => (location.hash = '#/territorio') }),
         el('button', { class: 'btn pequeno primario', html: icHTML('file-text', 14) + ' Relatório gerencial', onclick: () => (location.hash = '#/relatorios') }),
