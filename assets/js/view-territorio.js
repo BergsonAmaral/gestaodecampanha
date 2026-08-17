@@ -25,7 +25,7 @@
       return;
     }
     const acima = T.filter((t) => t.metaPct >= 100).length;
-    const paradas = T.filter((t) => t.diasSemAtividade >= 7);
+    const paradas = T.filter((t) => t.diasSemAtividade === null || t.diasSemAtividade >= 7);
     alvo.appendChild(el('div', { class: 'grade g4', style: { marginBottom: '16px' } }, [
       kpi({ rotulo: 'Cobertura do eleitorado', icone: 'target', valor: pct(sum(T, (t) => t.apoiadores), D.municipio.eleitores) + '%', nota: num(sum(T, (t) => t.apoiadores)) + ' apoiadores declarados' }),
       kpi({ rotulo: 'Bairros na meta', icone: 'square-check', valor: acima + '/' + T.length, cor: 'var(--accent-2)', nota: 'territórios que atingiram a meta prevista' }),
@@ -73,9 +73,9 @@
       { key: 'meta', label: 'Meta da região', color: 'var(--surface-3)' },
       { key: 'apoiadores', label: 'Apoiadores', color: '#0e9f6e' }] });
 
-    const alertaBox = el('div', { class: 'lista' }, sortBy(paradas, (t) => t.diasSemAtividade, 'desc').slice(0, 8).map((t) => listaItem({
+    const alertaBox = el('div', { class: 'lista' }, sortBy(paradas, (t) => t.diasSemAtividade === null ? Infinity : t.diasSemAtividade, 'desc').slice(0, 8).map((t) => listaItem({
       icone: 'map-pin', titulo: t.nome, sub: t.regiao + ' · cobertura ' + dec(t.cobertura) + '%',
-      valor: t.diasSemAtividade + 'd', nota: 'sem atividade', onclick: () => (location.hash = '#/territorio/' + t.id),
+      valor: t.diasSemAtividade === null ? 'nunca' : t.diasSemAtividade + 'd', nota: 'sem atividade', onclick: () => (location.hash = '#/territorio/' + t.id),
     })));
 
     alvo.appendChild(el('div', { class: 'grade g2', style: { marginBottom: '16px' } }, [
@@ -128,7 +128,7 @@
         { k: 'meta', rotulo: 'Meta', num: true, render: (t) => num(t.meta) },
         { k: 'metaPct', rotulo: 'Atingido', num: true, render: (t) => el('div', { style: { minWidth: '110px' } }, [el('small', { text: Math.round(t.metaPct) + '%' }), barra(t.metaPct, 100)]) },
         { k: 'liderancas', rotulo: 'Lideranças', num: true },
-        { k: 'diasSemAtividade', rotulo: 'Sem atividade', num: true, render: (t) => t.diasSemAtividade + ' d' },
+        { k: 'diasSemAtividade', rotulo: 'Sem atividade', num: true, render: (t) => t.diasSemAtividade === null ? 'sem registro' : t.diasSemAtividade + ' d' },
       ],
     });
     alvo.appendChild(filtros([
@@ -220,7 +220,8 @@
           dado('Última ação da campanha', st.ultimaAtividade ? fmtDate(st.ultimaAtividade) + ' (' + st.diasSemAtividade + ' dias)' : 'sem registro'),
           dado('Eventos realizados', num(evsPass.length) + (evsPass.length ? ' · ' + num(sum(evsPass, (e) => e.publicoPresente)) + ' presentes' : '')),
           dado('Tarefas em aberto', num(tfs.filter((t) => ['não iniciada', 'em andamento', 'atrasada'].includes(t.status)).length) + ' de ' + tfs.length),
-          st.diasSemAtividade >= 7 ? el('p', { class: 'subtexto', style: { marginTop: '10px', color: 'var(--danger)' }, text: 'Território sem ação registrada há ' + st.diasSemAtividade + ' dias — considere agendar uma atividade.' }) : null,
+          st.diasSemAtividade === null ? el('p', { class: 'subtexto', style: { marginTop: '10px', color: 'var(--danger)' }, text: 'Este território nunca teve uma ação da campanha registrada — considere agendar uma atividade.' })
+            : st.diasSemAtividade >= 7 ? el('p', { class: 'subtexto', style: { marginTop: '10px', color: 'var(--danger)' }, text: 'Território sem ação registrada há ' + st.diasSemAtividade + ' dias — considere agendar uma atividade.' }) : null,
         ]);
       })(),
     ]));

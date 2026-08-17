@@ -21,7 +21,8 @@
     const feitos = passos.filter((p) => p.ok).length;
 
     alvo.appendChild(cabecalho('Bem-vindo ao SIGC',
-      'A plataforma está vazia e pronta para receber os dados da sua campanha — ' + feitos + ' de ' + passos.length + ' primeiros passos concluídos'));
+      (feitos === passos.length ? 'Todos os primeiros passos foram concluídos' : 'A plataforma está pronta para receber os dados da sua campanha') +
+      ' — ' + feitos + ' de ' + passos.length + ' primeiros passos concluídos'));
 
     alvo.appendChild(el('div', { class: 'cartao', style: { marginBottom: '16px' } }, [
       el('div', { class: 'subtexto', style: { marginBottom: '8px' } }, 'Progresso da implantação'),

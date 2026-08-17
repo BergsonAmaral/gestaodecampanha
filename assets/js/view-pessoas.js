@@ -109,7 +109,7 @@
     const dados = cartao('Dados cadastrais', 'Identificação e contato', [
       dado('Telefone', p.telefone),
       dado('E-mail', p.email || 'não informado'),
-      dado('Nascimento', fmtDate(p.nascimento) + ' (' + Math.floor(global.U.daysBetween(p.nascimento, D.HOJE) / 365) + ' anos)'),
+      dado('Nascimento', p.nascimento ? fmtDate(p.nascimento) + ' (' + Math.floor(global.U.daysBetween(p.nascimento, D.HOJE) / 365) + ' anos)' : 'não informado'),
       dado('Gênero', p.genero === 'F' ? 'Feminino' : 'Masculino'),
       el('div', { class: 'divisor' }),
       dado('Município', D.municipio.nome),
