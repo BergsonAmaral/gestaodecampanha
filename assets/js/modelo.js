@@ -372,6 +372,19 @@
     return t;
   }
 
+  /** salva o resultado de um evento já registrado na ficha (registrarResultado) */
+  function atualizarEvento(e) {
+    if (e.publicoPresente !== null && e.publicoPresente !== undefined) e.status = 'realizado';
+    gravar();
+    return e;
+  }
+
+  /** salva mudança de status/encaminhamento de uma demanda já registrada */
+  function atualizarDemanda(d) {
+    gravar();
+    return d;
+  }
+
   function addMeta(d) {
     const m = {
       id: id('m'), titulo: d.titulo, escopo: d.escopo || 'campanha', alvoId: d.alvoId || null,
@@ -724,8 +737,8 @@
     territorioStats, metaAtual, equipeStats, alertas, historicoPessoa,
     salvarConfig, addTerritorio, editarTerritorio, removerTerritorio,
     addPessoa, editarPessoa, addInteracao, setClassificacao, addIntegranteEquipe,
-    addEquipe, addIntegrante, addLideranca, addTarefa, atualizarTarefa, addMeta, addDemanda,
-    addEvento, addAgenda, addMaterial, movimentarMaterial, addRecurso, addLancamento,
+    addEquipe, addIntegrante, addLideranca, addTarefa, atualizarTarefa, addMeta, addDemanda, atualizarDemanda,
+    addEvento, atualizarEvento, addAgenda, addMaterial, movimentarMaterial, addRecurso, addLancamento,
     addLocalVotacao, addOcorrencia, addPesquisa,
     zerar, exportarBase, importarBase, substituirBase, carregar, gravar, reindexar, baseVazia,
     PERFIS, simularPerfil,

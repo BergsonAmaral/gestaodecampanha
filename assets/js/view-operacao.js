@@ -552,6 +552,7 @@
         if (txtEnc.value.trim()) d.encaminhamento = txtEnc.value.trim();
         d.status = selStatus.value;
         if (d.status === 'atendida' && !d.solucao) d.solucao = txtEnc.value.trim() || 'Demanda atendida pela coordenação.';
+        D.atualizarDemanda(d);
         m.close();
         toast('Demanda atualizada para "' + d.status + '".');
         global.refresh();
@@ -639,7 +640,7 @@
 
     alvo.appendChild(el('div', { class: 'grade g5', style: { marginBottom: '16px' } }, [
       kpi({ rotulo: 'Público previsto', icone: 'target', valor: num(e.publicoPrevisto), nota: 'estimativa da equipe organizadora' }),
-      kpi({ rotulo: 'Público presente', icone: 'users', valor: e.publicoPresente ? num(e.publicoPresente) : '—', cor: 'var(--accent)', nota: e.publicoPresente ? pct(e.publicoPresente, e.publicoPrevisto) + '% do previsto' : 'evento ainda não realizado' }),
+      kpi({ rotulo: 'Público presente', icone: 'users', valor: e.publicoPresente !== null ? num(e.publicoPresente) : '—', cor: 'var(--accent)', nota: e.publicoPresente !== null ? pct(e.publicoPresente, e.publicoPrevisto) + '% do previsto' : 'evento ainda não realizado' }),
       kpi({ rotulo: 'Novos cadastros', icone: 'pencil', valor: e.novosCadastros !== null ? num(e.novosCadastros) : '—', cor: 'var(--accent-2)', nota: 'pessoas cadastradas na atividade' }),
       kpi({ rotulo: 'Novos apoiadores', icone: 'handshake', valor: e.novosApoiadores !== null ? num(e.novosApoiadores) : '—', cor: 'var(--warn)', nota: 'apoios declarados no evento' }),
       kpi({ rotulo: 'Lideranças presentes', icone: 'star', valor: num(e.liderancasPresentes), cor: 'var(--rose)', nota: e.novosMobilizadores ? e.novosMobilizadores + ' novos mobilizadores identificados' : 'confirmação em andamento' }),
@@ -675,6 +676,7 @@
   }
 
   function registrarResultado(e) {
+    const D = global.DB;
     const campos = {
       publicoPresente: el('input', { type: 'number', value: e.publicoPresente || '' }),
       liderancasPresentes: el('input', { type: 'number', value: e.liderancasPresentes }),
@@ -701,7 +703,7 @@
       el('button', { class: 'btn primario', text: 'Salvar resultado', onclick: () => {
         Object.keys(campos).forEach((k) => { const v = parseInt(campos[k].value, 10); if (!isNaN(v)) e[k] = v; });
         e.obs = obs.value.trim();
-        if (e.publicoPresente) e.status = 'realizado';
+        D.atualizarEvento(e);
         m.close();
         toast('Resultado registrado: ' + global.U.num(e.publicoPresente || 0) + ' presentes.');
         global.refresh();

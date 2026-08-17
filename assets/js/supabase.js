@@ -66,8 +66,8 @@
     addPessoa: 'pessoas', editarPessoa: 'pessoas', setClassificacao: 'pessoas',
     addInteracao: 'interacoes', addIntegranteEquipe: 'equipe_campanha',
     addEquipe: 'equipes', addLideranca: 'liderancas', addTarefa: 'tarefas',
-    atualizarTarefa: 'tarefas', addMeta: 'metas', addDemanda: 'demandas',
-    addEvento: 'eventos', addAgenda: 'agenda', addMaterial: 'materiais',
+    atualizarTarefa: 'tarefas', addMeta: 'metas', addDemanda: 'demandas', atualizarDemanda: 'demandas',
+    addEvento: 'eventos', atualizarEvento: 'eventos', addAgenda: 'agenda', addMaterial: 'materiais',
     addRecurso: 'recursos', addLancamento: 'financeiro', addLocalVotacao: 'locais_votacao',
     addPesquisa: 'pesquisas',
   };
