@@ -43,6 +43,11 @@
     container.innerHTML = '';
     container.classList.add('mapa-wrap');
     const M = global.DB.mapa;
+    if (!M) {
+      // nenhum bairro cadastrado ainda — sem geometria para desenhar
+      container.appendChild(global.U.el('div', { class: 'vazio', text: 'Cadastre os bairros do município em Territórios para o mapa aparecer aqui.' }));
+      return;
+    }
     const s = svg('svg', { viewBox: '0 0 ' + M.w + ' ' + M.h, class: 'mapa-svg', preserveAspectRatio: 'xMidYMid meet' });
     container.appendChild(s);
 
