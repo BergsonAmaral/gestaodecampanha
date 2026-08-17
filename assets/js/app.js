@@ -768,14 +768,16 @@
 
   async function entrarNaPlataforma() {
     if (global.SB.autenticado()) {
-      const m = await global.SB.carregarMembro();
-      if (m) {
-        try { await global.SB.baixarTudo(); } catch (e) { toast('Conectado, mas não consegui baixar a campanha: ' + e.message, 'erro'); }
-        return iniciarApp();
-      }
-      if (await global.SB.souSuperadmin()) return montarPainelAdmin();
-      const pendente = await global.SB.minhaSolicitacaoEquipe();
-      if (pendente) return montarAguardandoAprovacao();
+      try {
+        const m = await global.SB.carregarMembro();
+        if (m) {
+          try { await global.SB.baixarTudo(); } catch (e) { toast('Conectado, mas não consegui baixar a campanha: ' + e.message, 'erro'); }
+          return iniciarApp();
+        }
+        if (await global.SB.souSuperadmin()) return montarPainelAdmin();
+        const pendente = await global.SB.minhaSolicitacaoEquipe();
+        if (pendente) return montarAguardandoAprovacao();
+      } catch (e) { /* sessão travada ou falha de rede — cai para o login em vez de ficar em branco */ }
       global.SB.sair(); // sessão sem vínculo de acesso, sem ser superadmin e sem convite pendente — volta para o login
     }
     if (global.SB.configurado()) return montarLogin(() => entrarPosLogin());
