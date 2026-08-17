@@ -162,8 +162,8 @@
   }
 
   const listarSolicitacoes = () => rest('solicitacoes_acesso?select=*&order=criada_em.desc');
-  const criarConvite = (email, nota) => rest('rpc/criar_convite', { method: 'POST', body: JSON.stringify({ p_email: email, p_nota: nota || null }) });
-  const ativarConvite = () => rest('rpc/ativar_convite', { method: 'POST', body: '{}' });
+  const criarConvite = (nota) => rest('rpc/criar_convite', { method: 'POST', body: JSON.stringify({ p_nota: nota || null }) });
+  const ativarConvite = (token) => rest('rpc/ativar_convite', { method: 'POST', body: JSON.stringify({ p_token: token }) });
   const listarConvites = () => rest('convites?select=*&order=criado_em.desc');
   const aprovarSolicitacao = (id) => rest('rpc/aprovar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id }) });
   const recusarSolicitacao = (id, motivo) => rest('rpc/recusar_solicitacao', { method: 'POST', body: JSON.stringify({ p_solicitacao_id: id, p_motivo: motivo || null }) });

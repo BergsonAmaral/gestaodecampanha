@@ -365,16 +365,13 @@
   });
   /* ==========================  ENTRADA  ========================== */
   const CHAVE_PENDENTE = 'sigc.bootstrapPendente';
+  const CHAVE_TOKEN_PENDENTE = 'sigc.tokenConvitePendente';
 
-  /** depois que a conta foi confirmada por e-mail: tenta ativar convite (se houver) e,
-   *  senão, registra a solicitação de acesso normal */
+  /** depois que a conta foi confirmada por e-mail: registra a solicitação de acesso normal
+   *  (quem veio por link de convite já foi ativado na hora — ver montarAtivacaoConvite) */
   async function tentarConcluirSolicitacaoPendente(email) {
     let pend;
     try { pend = JSON.parse(localStorage.getItem(CHAVE_PENDENTE) || 'null'); } catch (e) { pend = null; }
-    try {
-      const r = await global.SB.ativarConvite();
-      if (r && r.ativado) { localStorage.removeItem(CHAVE_PENDENTE); return 'ativado'; }
-    } catch (e) { /* segue para o pedido normal */ }
     if (!pend || pend.email !== email) return false;
     try {
       await global.SB.solicitarAcesso(pend);
@@ -418,17 +415,14 @@
         btn.textContent = 'Entrando…';
         try {
           await global.SB.entrar(email.value.trim(), senha.value);
-          let membro = await global.SB.carregarMembro();
-          if (!membro) {
-            try { const r = await global.SB.ativarConvite(); if (r && r.ativado) membro = await global.SB.carregarMembro(); } catch (e) {}
-          }
+          const membro = await global.SB.carregarMembro();
           if (membro) return await aoEntrar();
           if (await global.SB.souSuperadmin()) return montarPainelAdmin();
           const registrou = await tentarConcluirSolicitacaoPendente(email.value.trim());
           global.SB.sair();
           mostrarErro(registrou
             ? 'Conta confirmada e solicitação registrada. Aguarde a aprovação da administração da plataforma para entrar.'
-            : 'Login correto, mas este e-mail ainda não tem acesso liberado. Se você já pediu acesso, aguarde a aprovação; senão, use "Solicitar acesso" abaixo.');
+            : 'Login correto, mas este e-mail ainda não tem acesso liberado. Se você recebeu um link de acesso, abra-o novamente; senão, use "Solicitar acesso" abaixo.');
           btn.disabled = false;
           btn.innerHTML = global.icHTML('user-round', 15) + ' Entrar';
         } catch (e) {
@@ -483,8 +477,6 @@
             btn.innerHTML = global.icHTML('sparkles', 15) + ' Solicitar acesso';
             return;
           }
-          const conv = await global.SB.ativarConvite();
-          if (conv && conv.ativado) { return await aoEntrar(); }
           await global.SB.solicitarAcesso(dados);
           global.SB.sair();
           mostrarAviso('Solicitação enviada! Assim que a administração da plataforma aprovar, você poderá entrar normalmente com este e-mail e senha.');
@@ -541,30 +533,47 @@
 
       const corpo = el('main', { class: 'admin-corpo' });
 
-      const inpEmail = el('input', { type: 'email', placeholder: 'e-mail do coordenador' });
       const inpNota = el('input', { type: 'text', placeholder: 'anotação para você (opcional) — ex.: nome do cliente' });
-      const btnConvidar = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('plus', 14) + ' Convidar' });
+      const btnConvidar = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('plus', 14) + ' Gerar link de acesso' });
+      const areaLink = el('div', { style: { display: 'none', marginTop: '12px' } });
       corpo.appendChild(el('form', { class: 'admin-convite', onsubmit: async (ev) => {
         ev.preventDefault();
-        if (!inpEmail.value.trim()) return;
         btnConvidar.disabled = true;
         try {
-          await global.SB.criarConvite(inpEmail.value.trim(), inpNota.value.trim());
-          toast('Convite criado — quando essa pessoa criar a conta com este e-mail, o acesso é liberado na hora.');
-          inpEmail.value = ''; inpNota.value = '';
+          const token = await global.SB.criarConvite(inpNota.value.trim());
+          const link = location.origin + location.pathname + '#/ativar/' + token;
+          areaLink.style.display = 'block';
+          areaLink.innerHTML = '';
+          areaLink.appendChild(el('div', { class: 'campo' }, [
+            el('label', { text: 'Envie este link ao coordenador (WhatsApp, e-mail — o que for melhor)' }),
+            el('div', { class: 'filtros', style: { marginBottom: 0 } }, [
+              el('input', { type: 'text', readonly: true, value: link, style: { flex: 1 }, onclick: (e) => e.target.select() }),
+              el('button', { class: 'btn pequeno', type: 'button', html: global.icHTML('clipboard-list', 13) + ' Copiar', onclick: () => {
+                navigator.clipboard.writeText(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar — selecione e copie manualmente.', 'erro'));
+              } }),
+            ]),
+          ]));
+          inpNota.value = '';
           desenhar();
-        } catch (e) { toast(e.message, 'erro'); btnConvidar.disabled = false; }
+        } catch (e) { toast(e.message, 'erro'); }
+        btnConvidar.disabled = false;
       }}, [
         el('h2', { style: { marginTop: 0 }, text: 'Cadastrar novo coordenador' }),
-        el('p', { class: 'subtexto', style: { marginBottom: '12px' }, text: 'Você só informa o e-mail. Quem preenche candidatura, município e data da eleição é o próprio coordenador, ao entrar pela primeira vez.' }),
-        el('div', { class: 'campo-linha' }, [inpEmail, inpNota]),
-        btnConvidar,
+        el('p', { class: 'subtexto', style: { marginBottom: '12px' }, text: 'Gere um link e envie ao coordenador. Quem preenche e-mail, senha, candidatura, município e data da eleição é ele mesmo — você não precisa saber esses dados de antemão.' }),
+        inpNota, btnConvidar, areaLink,
       ]));
 
       if (convitesAbertos.length) {
-        corpo.appendChild(el('h2', { style: { marginTop: '22px' }, text: convitesAbertos.length + ' convite(s) aguardando a pessoa criar a conta' }));
+        corpo.appendChild(el('h2', { style: { marginTop: '22px' }, text: convitesAbertos.length + ' link(s) aguardando ativação' }));
         convitesAbertos.forEach((c) => corpo.appendChild(el('div', { class: 'admin-cartao decidida' }, [
-          el('div', { style: { flex: 1 } }, [el('b', { text: c.email }), c.nota ? el('div', { class: 'subtexto', text: c.nota }) : null]),
+          el('div', { style: { flex: 1 } }, [
+            el('b', { text: c.nota || 'sem anotação' }),
+            el('div', { class: 'subtexto', text: 'gerado em ' + new Date(c.criado_em).toLocaleDateString('pt-BR') }),
+          ]),
+          el('button', { class: 'btn pequeno', html: global.icHTML('clipboard-list', 13) + ' Copiar link', onclick: () => {
+            const link = location.origin + location.pathname + '#/ativar/' + c.id;
+            navigator.clipboard.writeText(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar.', 'erro'));
+          } }),
           el('span', { class: 'tag laranja ponto', text: 'aguardando' }),
         ])));
       }
@@ -607,6 +616,66 @@
     desenhar();
   }
 
+  /** tela de ativação de convite por link — funciona sem sessão prévia */
+  function montarAtivacaoConvite(token) {
+    document.body.innerHTML = '';
+    document.documentElement.dataset.tema = store.get('tema', 'claro');
+    const erro = el('div', { class: 'login-erro', style: { display: 'none' } });
+    const aviso = el('div', { class: 'login-aviso', style: { display: 'none' } });
+    const mostrarErro = (msg) => { erro.textContent = msg; erro.style.display = 'block'; aviso.style.display = 'none'; };
+    const mostrarAviso = (msg) => { aviso.textContent = msg; aviso.style.display = 'block'; erro.style.display = 'none'; };
+
+    const email = el('input', { type: 'email', placeholder: 'seu e-mail', autocomplete: 'username' });
+    const senha = el('input', { type: 'password', placeholder: 'crie uma senha (mínimo 6 caracteres)', autocomplete: 'new-password' });
+    const btn = el('button', { class: 'btn primario', type: 'submit', html: global.icHTML('sparkles', 15) + ' Criar minha conta' });
+
+    async function tentarAtivar() {
+      try {
+        const r = await global.SB.ativarConvite(token);
+        if (r && r.ativado) return await entrarPosLogin();
+        global.SB.sair();
+        mostrarErro(r && r.motivo === 'já tem acesso' ? 'Esta conta já tem acesso a uma campanha — entre normalmente.' : 'Este link já foi usado ou não é mais válido. Peça um novo à administração da plataforma.');
+      } catch (e) {
+        mostrarErro(String(e.message || e));
+      }
+    }
+
+    const form = el('form', { class: 'login-form', onsubmit: async (ev) => {
+      ev.preventDefault();
+      erro.style.display = 'none'; aviso.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Criando…';
+      try {
+        const r = await global.SB.cadastrar(email.value.trim(), senha.value);
+        if (!r.access_token) {
+          localStorage.setItem(CHAVE_TOKEN_PENDENTE, token);
+          mostrarAviso('Conta criada! Este projeto pede confirmação por e-mail — verifique sua caixa de entrada, clique no link recebido e depois abra de novo o link de acesso que você usou agora para concluir.');
+          btn.disabled = false; btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar minha conta';
+          return;
+        }
+        await tentarAtivar();
+      } catch (e) {
+        mostrarErro(String(e.message || e));
+        btn.disabled = false; btn.innerHTML = global.icHTML('sparkles', 15) + ' Criar minha conta';
+      }
+    }}, [
+      el('div', { class: 'campo' }, [el('label', { text: 'E-mail' }), email]),
+      el('div', { class: 'campo' }, [el('label', { text: 'Senha' }), senha]),
+      erro, aviso, btn,
+    ]);
+
+    document.body.appendChild(el('div', { class: 'login-tela' }, [
+      el('div', { class: 'login-caixa' }, [
+        el('img', { class: 'login-logo', src: 'assets/img/logo-completa.png', alt: 'Sistema de Gestão de Campanha' }),
+        el('p', { class: 'subtexto', text: 'Você foi convidado(a) a coordenar uma campanha. Crie seu e-mail e senha de acesso — os dados da campanha você preenche depois de entrar.' }),
+        form,
+      ]),
+    ]));
+    setTimeout(() => email.focus(), 60);
+
+    // se já estava logado (ex.: reabriu o mesmo link após confirmar o e-mail), tenta ativar direto
+    if (global.SB.autenticado()) tentarAtivar();
+  }
+
   async function iniciarApp() {
     document.body.innerHTML = '';
     document.documentElement.dataset.tema = store.get('tema', 'claro');
@@ -638,5 +707,9 @@
     return iniciarApp();
   }
 
-  document.addEventListener('DOMContentLoaded', () => { entrarNaPlataforma(); });
+  document.addEventListener('DOMContentLoaded', () => {
+    const m = location.hash.match(/^#\/ativar\/([0-9a-fA-F-]{36})/);
+    if (m) return montarAtivacaoConvite(m[1]);
+    entrarNaPlataforma();
+  });
 })(window);
