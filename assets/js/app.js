@@ -6,37 +6,39 @@
   const { $, el, esc, num, store, toast, norm, initials, debounce } = global.U;
   const VIEWS = (global.VIEWS = global.VIEWS || {});
 
+  // ordem pensada para o uso do dia a dia: o que se olha e mexe toda hora
+  // primeiro, o que é raro (configuração, acessos) por último.
   const MENU = [
     { grupo: 'Acompanhar', nota: 'leitura da campanha', itens: [
       { rota: '', icone: 'layout-dashboard', rotulo: 'Painel geral' },
       { rota: 'alertas', icone: 'triangle-alert', rotulo: 'Alertas', badge: () => global.DB.alertas().filter((a) => a.nivel === 'alto').length },
       { rota: 'territorio', icone: 'map', rotulo: 'Mapa territorial' },
-      { rota: 'mobilizacao', icone: 'trending-up', rotulo: 'Mobilização' },
       { rota: 'performance', icone: 'zap', rotulo: 'Performance' },
+      { rota: 'mobilizacao', icone: 'trending-up', rotulo: 'Mobilização' },
+      { rota: 'relatorios', icone: 'file-text', rotulo: 'Relatórios' },
       { rota: 'financeiro', icone: 'wallet', rotulo: 'Financeiro' },
       { rota: 'pesquisas', icone: 'chart-column', rotulo: 'Pesquisas' },
-      { rota: 'relatorios', icone: 'file-text', rotulo: 'Relatórios' },
     ]},
     { grupo: 'Cadastros', nota: 'o que a campanha registra', itens: [
       { rota: 'pessoas', icone: 'users', rotulo: 'Pessoas' },
+      { rota: 'equipes', icone: 'users-round', rotulo: 'Equipes e núcleos' },
       { rota: 'liderancas', icone: 'star', rotulo: 'Lideranças' },
       { rota: 'territorios', icone: 'map-pin', rotulo: 'Territórios' },
-      { rota: 'equipes', icone: 'users-round', rotulo: 'Equipes e núcleos' },
       { rota: 'materiais', icone: 'package', rotulo: 'Materiais' },
       { rota: 'recursos', icone: 'truck', rotulo: 'Veículos e recursos' },
+    ]},
+    { grupo: 'Ação', nota: 'o que a campanha faz', itens: [
+      { rota: 'tarefas', icone: 'list-checks', rotulo: 'Tarefas', badge: () => global.DB.stats().tarefasAtrasadas },
+      { rota: 'demandas', icone: 'inbox', rotulo: 'Demandas', badge: () => global.DB.stats().demandasPendentes, neutro: true },
+      { rota: 'eventos', icone: 'megaphone', rotulo: 'Eventos' },
+      { rota: 'agenda', icone: 'calendar-days', rotulo: 'Agenda' },
+      { rota: 'metas', icone: 'target', rotulo: 'Metas' },
+      { rota: 'eleicao', icone: 'vote', rotulo: 'Dia da eleição' },
     ]},
     { grupo: 'Sistema', nota: 'configuração e base', itens: [
       { rota: 'inicio', icone: 'compass', rotulo: 'Primeiros passos' },
       { rota: 'acessos', icone: 'shield-check', rotulo: 'Acessos', admin: true },
       { rota: 'config', icone: 'settings', rotulo: 'Configurações', badge: () => global.SB.pendentes, neutro: true },
-    ]},
-    { grupo: 'Ação', nota: 'o que a campanha faz', itens: [
-      { rota: 'tarefas', icone: 'list-checks', rotulo: 'Tarefas', badge: () => global.DB.stats().tarefasAtrasadas },
-      { rota: 'agenda', icone: 'calendar-days', rotulo: 'Agenda' },
-      { rota: 'eventos', icone: 'megaphone', rotulo: 'Eventos' },
-      { rota: 'demandas', icone: 'inbox', rotulo: 'Demandas', badge: () => global.DB.stats().demandasPendentes, neutro: true },
-      { rota: 'metas', icone: 'target', rotulo: 'Metas' },
-      { rota: 'eleicao', icone: 'vote', rotulo: 'Dia da eleição' },
     ]},
   ];
 
