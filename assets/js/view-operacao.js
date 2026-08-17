@@ -198,7 +198,7 @@
     alvo.appendChild(el('div', { class: 'grade g5', style: { marginBottom: '16px' } }, STATUS_TAREFA.map((s, i) => kpi({
       rotulo: s.charAt(0).toUpperCase() + s.slice(1), icone: ['circle-dashed', 'activity', 'square-check', 'clock', 'circle-x'][i], valor: num(cont.get(s) || 0),
       cor: ['var(--txt-3)', 'var(--accent-2)', 'var(--accent)', 'var(--danger)', 'var(--txt-3)'][i],
-      nota: dec(((cont.get(s) || 0) / D.tarefas.length) * 100) + '% do total',
+      nota: (D.tarefas.length ? dec(((cont.get(s) || 0) / D.tarefas.length) * 100) : '0') + '% do total',
     }))));
 
     const area = el('div');
@@ -462,7 +462,7 @@
     alvo.appendChild(el('div', { class: 'grade g5', style: { marginBottom: '16px' } }, ['aberta', 'em análise', 'encaminhada', 'atendida', 'não atendida'].map((s, i) => kpi({
       rotulo: s.charAt(0).toUpperCase() + s.slice(1), icone: ['inbox', 'search', 'route', 'square-check', 'circle-x'][i], valor: num(cont.get(s) || 0),
       cor: ['var(--warn)', 'var(--accent-2)', 'var(--accent-3)', 'var(--accent)', 'var(--danger)'][i],
-      nota: dec(((cont.get(s) || 0) / D.demandas.length) * 100) + '% do total',
+      nota: (D.demandas.length ? dec(((cont.get(s) || 0) / D.demandas.length) * 100) : '0') + '% do total',
     }))));
 
     const areaBox = el('div', { class: 'lista' }, sortBy(D.AREAS.map((a) => ({
@@ -478,7 +478,7 @@
       el('div', {}, D.PRIORIDADES.slice().reverse().map((p, i) => {
         const n = D.demandas.filter((d) => d.prioridade === p).length;
         const pend = D.demandas.filter((d) => d.prioridade === p && ['aberta', 'em análise', 'encaminhada'].includes(d.status)).length;
-        return indicador(p.charAt(0).toUpperCase() + p.slice(1), (n / D.demandas.length) * 100,
+        return indicador(p.charAt(0).toUpperCase() + p.slice(1), D.demandas.length ? (n / D.demandas.length) * 100 : 0,
           num(n) + ' demanda(s) · ' + num(pend) + ' ainda pendente(s)',
           ['#e11d48', '#d97706', '#2563eb', '#98a2b3'][i]);
       })),

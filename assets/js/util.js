@@ -208,6 +208,33 @@
     return { close, body, box };
   }
 
+  /** copia texto com reserva para quando a API moderna falha (ex.: "Document is not focused") */
+  function copiarTexto(texto) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(texto).catch(() => copiarViaTextarea(texto));
+    }
+    return copiarViaTextarea(texto);
+  }
+  function copiarViaTextarea(texto) {
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        const ok = document.execCommand('copy');
+        ta.remove();
+        ok ? resolve() : reject(new Error('execCommand falhou'));
+      } catch (e) {
+        ta.remove();
+        reject(e);
+      }
+    });
+  }
+
   const debounce = (fn, ms) => {
     let t;
     return function () {
@@ -238,6 +265,6 @@
     toDate, iso, fmtDate, fmtDateShort, fmtWeekday, addDays, daysBetween, relDays, MESES, DIAS,
     by, countBy, sum, sortBy, uniq, norm, initials,
     rng, pick, pickW, int,
-    store, toast, modal, debounce, lerpColor, scaleColor,
+    store, toast, modal, debounce, lerpColor, scaleColor, copiarTexto,
   };
 })(window);

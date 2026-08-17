@@ -171,7 +171,7 @@
       el('pre', { class: 'bloco-sql', text: sql }),
       el('div', { class: 'filtros', style: { marginTop: '10px' } }, [
         el('button', { class: 'btn pequeno', html: global.icHTML('clipboard-list', 13) + ' Copiar comando', onclick: () => {
-          navigator.clipboard.writeText(sql).then(() => toast('Comando copiado.'), () => toast('Não foi possível copiar.', 'erro'));
+          global.U.copiarTexto(sql).then(() => toast('Comando copiado.'), () => toast('Não foi possível copiar automaticamente — selecione o texto acima e use Cmd/Ctrl+C.', 'erro'));
         } }),
       ]),
     ]);

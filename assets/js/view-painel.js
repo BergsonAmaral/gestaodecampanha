@@ -105,7 +105,7 @@
     const cardRank = cartao('Quem está ampliando a base', 'Cadastros realizados por mobilizador', [rankBox], [el('button', { class: 'btn pequeno', text: 'mobilização', onclick: () => (location.hash = '#/mobilizacao') })]);
 
     const ringBox = el('div');
-    const conclusao = (s.tarefasConcluidas / D.tarefas.length) * 100;
+    const conclusao = D.tarefas.length ? (s.tarefasConcluidas / D.tarefas.length) * 100 : 0;
     global.CH.ring(ringBox, { valor: conclusao, rotulo: 'tarefas concluídas', height: 140 });
     const proximos = sortBy(D.eventos.filter((e) => e.data >= global.U.iso(D.HOJE)), (e) => e.data).slice(0, 4);
     const cardOper = cartao('Operação', 'Execução e próximos compromissos', [

@@ -549,7 +549,7 @@
             el('div', { class: 'filtros', style: { marginBottom: 0 } }, [
               el('input', { type: 'text', readonly: true, value: link, style: { flex: 1 }, onclick: (e) => e.target.select() }),
               el('button', { class: 'btn pequeno', type: 'button', html: global.icHTML('clipboard-list', 13) + ' Copiar', onclick: () => {
-                navigator.clipboard.writeText(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar — selecione e copie manualmente.', 'erro'));
+                global.U.copiarTexto(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar automaticamente — clique no campo acima e use Cmd/Ctrl+C.', 'erro'));
               } }),
             ]),
           ]));
@@ -565,17 +565,20 @@
 
       if (convitesAbertos.length) {
         corpo.appendChild(el('h2', { style: { marginTop: '22px' }, text: convitesAbertos.length + ' link(s) aguardando ativação' }));
-        convitesAbertos.forEach((c) => corpo.appendChild(el('div', { class: 'admin-cartao decidida' }, [
-          el('div', { style: { flex: 1 } }, [
-            el('b', { text: c.nota || 'sem anotação' }),
-            el('div', { class: 'subtexto', text: 'gerado em ' + new Date(c.criado_em).toLocaleDateString('pt-BR') }),
-          ]),
-          el('button', { class: 'btn pequeno', html: global.icHTML('clipboard-list', 13) + ' Copiar link', onclick: () => {
-            const link = location.origin + location.pathname + '#/ativar/' + c.id;
-            navigator.clipboard.writeText(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar.', 'erro'));
-          } }),
-          el('span', { class: 'tag laranja ponto', text: 'aguardando' }),
-        ])));
+        convitesAbertos.forEach((c) => {
+          const link = location.origin + location.pathname + '#/ativar/' + c.id;
+          corpo.appendChild(el('div', { class: 'admin-cartao decidida', style: { flexWrap: 'wrap' } }, [
+            el('div', { style: { flex: '1 1 220px' } }, [
+              el('b', { text: c.nota || 'sem anotação' }),
+              el('div', { class: 'subtexto', text: 'gerado em ' + new Date(c.criado_em).toLocaleDateString('pt-BR') }),
+            ]),
+            el('span', { class: 'tag laranja ponto', text: 'aguardando' }),
+            el('input', { type: 'text', readonly: true, value: link, style: { flex: '1 1 100%', marginTop: '8px' }, onclick: (e) => e.target.select() }),
+            el('button', { class: 'btn pequeno', html: global.icHTML('clipboard-list', 13) + ' Copiar link', onclick: () => {
+              global.U.copiarTexto(link).then(() => toast('Link copiado.'), () => toast('Não foi possível copiar automaticamente — clique no campo acima e use Cmd/Ctrl+C.', 'erro'));
+            } }),
+          ]));
+        });
       }
 
       corpo.appendChild(el('h2', { style: { marginTop: '22px' }, text: pendentes.length + ' solicitação(ões) pendente(s) (sem convite)' }));
